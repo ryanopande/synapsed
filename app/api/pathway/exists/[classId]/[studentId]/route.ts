@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/db/prisma";
-import { requireStudentOrClassProfessor } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 // function to check if a pathway exists for a student in a class
 export async function GET(
   req: Request,
@@ -10,9 +9,6 @@ export async function GET(
   if (!classId || !studentId) {
     return NextResponse.json({ exists: false });
   }
-
-  const authResult = await requireStudentOrClassProfessor(classId, studentId);
-  if (!authResult.ok) return authResult.response;
   const pathway = await prisma.learningPathway.findFirst({
     where: { 
       classId, 

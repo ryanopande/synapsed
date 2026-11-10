@@ -1,25 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/db/prisma";
-import { requireUser } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
+import { auth } from "@/auth";
 
 export async function DELETE(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const authResult = await requireUser();
-    if (!authResult.ok) return authResult.response;
-    const { user } = authResult;
+    const session = await auth();
+    if (!session?.user) {
+      return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+    }
 
     const { id } = await params;
-
-    const document = await prisma.document.findFirst({
-      where: { id, uploadedBy: user.id },
-      select: { id: true },
-    });
-    if (!document) {
-      return NextResponse.json({ message: "Document not found" }, { status: 404 });
-    }
 
     // Delete all content references for the document (cascade deletes notes)
     await prisma.contentReference.deleteMany({

@@ -1,23 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
-import { invokeAgent } from "@/lib/agent/tutorAgent";
-import { ConversationService } from "@/lib/agent/conversationService";
+import { invokeAgent } from "@/lib/agent/simple-agent";
+import { ConversationService } from "@/lib/agent/conversation-service";
 import {
   getCachedVoiceTurn,
   pruneExpiredVoiceTurns,
   setCachedVoiceTurn,
-} from "@/lib/agent/voiceTurnStore";
-import { requireClassMember, requireUser } from "@/lib/auth";
+} from "@/lib/agent/voice-turn-store";
 
 export async function POST(request: NextRequest) {
   try {
-    const authResult = await requireUser();
-    if (!authResult.ok) return authResult.response;
-    // Conversations always belong to the signed-in user; a userId in the body is ignored.
-    const userId = authResult.user.id;
-
     const body = await request.json();
-    const { transcript, classId, lessonId, threadId, turnId } = body as {
+    const { transcript, userId, classId, lessonId, threadId, turnId } = body as {
       transcript?: string;
+      userId?: string;
       classId?: string;
       lessonId?: string;
       threadId?: string;
@@ -35,19 +30,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "turnId is required" }, { status: 400 });
     }
 
-    if (classId) {
-      const memberResult = await requireClassMember(classId);
-      if (!memberResult.ok) return memberResult.response;
-    }
-
     pruneExpiredVoiceTurns();
 
-    const conversation = await ConversationService.getOrCreateConversation({
-      userId,
-      classId,
-      lessonId,
-      threadId,
-    });
+    let conversation;
+    if (userId) {
+      conversation = await ConversationService.getOrCreateConversation({
+        userId,
+        classId,
+        lessonId,
+        threadId,
+      });
+    }
 
     const agentThreadId =
       conversation?.threadId || threadId || `voice-thread-${Date.now()}`;
@@ -63,8 +56,7 @@ export async function POST(request: NextRequest) {
       agentThreadId,
       classId,
       userId,
-      conversation?.id,
-      lessonId
+      conversation?.id
     );
 
     if (conversation) {

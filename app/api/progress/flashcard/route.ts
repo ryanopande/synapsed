@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/db/prisma';
-import { requireUser } from '@/lib/auth';
+import { prisma } from '@/lib/prisma';
+import { auth } from '@/auth';
 
 export async function POST(request: NextRequest) {
   try {
-    const authResult = await requireUser();
-    if (!authResult.ok) return authResult.response;
-    const { user } = authResult;
+    const session = await auth();
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
 
     const { nodeId, cardId, mastered } = await request.json();
     
@@ -18,7 +19,7 @@ export async function POST(request: NextRequest) {
       where: {
         nodeId_studentId: {
           nodeId,
-          studentId: user.id
+          studentId: session.user.id
         }
       },
       update: {
@@ -30,7 +31,7 @@ export async function POST(request: NextRequest) {
       },
       create: {
         nodeId,
-        studentId: user.id,
+        studentId: session.user.id,
         flashMasteredIds: mastered ? [cardId] : []
       }
     });

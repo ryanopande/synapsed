@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireUser } from '@/lib/auth';
-import { prisma } from '@/lib/db/prisma';
+import { auth } from '@/auth';
+import { prisma } from '@/lib/prisma';
 import { CreateQuestionRequest, QuestionOptionInput } from '@/lib/types/quizzes';
 import { Prisma } from '@prisma/client';
 
@@ -10,9 +10,10 @@ export async function POST(
   { params }: { params: Promise<{ quizId: string }> }
 ) {
   try {
-    const authResult = await requireUser();
-    if (!authResult.ok) return authResult.response;
-    const { user } = authResult;
+    const session = await auth();
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
 
     const { quizId } = await params;
 
@@ -26,7 +27,7 @@ export async function POST(
       return NextResponse.json({ error: 'Quiz not found' }, { status: 404 });
     }
 
-    if (quiz.professorId !== user.id) {
+    if (quiz.professorId !== session.user.id) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 

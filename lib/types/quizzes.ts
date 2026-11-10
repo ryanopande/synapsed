@@ -102,7 +102,6 @@ export interface QuizSubmitRequest {
   answers: Array<{
     questionId: string;
     answerText: string;
-    optionId?: string | null;
   }>;
 }
 
@@ -112,8 +111,6 @@ export interface QuizSubmitResponse {
   score: number;
   totalQuestions: number;
   correctCount: number;
-  /** Answers waiting for the professor to grade (short answers). */
-  pendingCount?: number;
 }
 
 // OCR Types

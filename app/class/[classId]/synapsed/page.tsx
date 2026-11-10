@@ -1,14 +1,14 @@
 "use client";
 
-import AIAssistant from '@/components/pathway/AIAssistant';
+import AIAssistant from '@/components/AIAssistant';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
-import { useSession } from '@/lib/auth/client';
+import { useSession } from 'next-auth/react';
 
-const SynapsedFlow = dynamic(() => import('@/components/pathway/PathwayDisplay'), {
+const SynapsedFlow = dynamic(() => import('@/components/Synapses/Pathway/PathwayDisplay'), {
   ssr: false,
   loading: () => null,
 });

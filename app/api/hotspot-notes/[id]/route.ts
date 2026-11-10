@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireUser } from '@/lib/auth';
-import { prisma } from '@/lib/db/prisma'
+import { auth } from '@/auth'
+import { prisma } from '@/lib/prisma'
 
 // GET /api/hotspot-notes/[id] - Get a specific hotspot note
 export async function GET(
@@ -8,15 +8,16 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const authResult = await requireUser();
-    if (!authResult.ok) return authResult.response;
-    const { user } = authResult;
+    const session = await auth()
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
 
     const { id } = await params
     const note = await prisma.note.findFirst({
       where: {
         id: id,
-        createdBy: user.id
+        createdBy: session.user.id
       },
       include: {
         contentReference: {
@@ -44,9 +45,10 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const authResult = await requireUser();
-    if (!authResult.ok) return authResult.response;
-    const { user } = authResult;
+    const session = await auth()
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
 
     const { id } = await params
     const body = await request.json()
@@ -59,7 +61,7 @@ export async function PUT(
     const note = await prisma.note.updateMany({
       where: {
         id: id,
-        createdBy: user.id
+        createdBy: session.user.id
       },
       data: {
         content,
@@ -97,15 +99,16 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const authResult = await requireUser();
-    if (!authResult.ok) return authResult.response;
-    const { user } = authResult;
+    const session = await auth()
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
 
     const { id } = await params
     const note = await prisma.note.deleteMany({
       where: {
         id: id,
-        createdBy: user.id
+        createdBy: session.user.id
       }
     })
 

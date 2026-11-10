@@ -1,6 +1,6 @@
 # `hooks/` — Shared React hooks
 
-Client-side hooks used across SynapsEd UI. File names are `useX`, matching the hook they export.
+Client-side hooks used across SynapsEd UI.
 
 Hub: [`../README.md`](../README.md) · Components: [`../components/README.md`](../components/README.md).
 
@@ -10,9 +10,11 @@ Hub: [`../README.md`](../README.md) · Components: [`../components/README.md`](.
 
 | File | Purpose |
 |---|---|
-| `useFlashDeck.ts` | Flashcard deck data via SWR (used by the parked flashcards tab) |
-| `useFormedible.tsx` | Formedible dynamic form helpers for in-chat assessments |
-| `useIsMobile.tsx` | Mobile breakpoint helper (used by `components/ui/sidebar.tsx`) |
+| `useFlashDeck.ts` | Flashcard deck data via SWR |
+| `use-formedible.tsx` | Formedible dynamic form helpers for in-chat assessments |
+| `use-mobile.tsx` | Responsive / mobile breakpoint helper |
+| `use-dropdown.ts` | Dropdown open/close state |
+| `use-field-state.ts` | Field state helper for forms |
 
 ---
 

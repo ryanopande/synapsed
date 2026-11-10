@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireUser } from '@/lib/auth';
-import { prisma } from '@/lib/db/prisma'
+import { auth } from '@/auth'
+import { prisma } from '@/lib/prisma'
 
 // GET /api/content-references - Get content references for a document
 export async function GET(request: NextRequest) {
   try {
-    const authResult = await requireUser();
-    if (!authResult.ok) return authResult.response;
-    const { user } = authResult;
+    const session = await auth()
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
 
     const { searchParams } = new URL(request.url)
     const documentId = searchParams.get('documentId')
@@ -20,7 +21,7 @@ export async function GET(request: NextRequest) {
     const document = await prisma.document.findFirst({
       where: {
         id: documentId,
-        uploadedBy: user.id
+        uploadedBy: session.user.id
       }
     })
 
@@ -54,9 +55,10 @@ export async function GET(request: NextRequest) {
 // POST /api/content-references - Create a new content reference
 export async function POST(request: NextRequest) {
   try {
-    const authResult = await requireUser();
-    if (!authResult.ok) return authResult.response;
-    const { user } = authResult;
+    const session = await auth()
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
 
     const body = await request.json()
     const { documentId, pageNumber, contentType, contentHash, contentPreview, coordinates } = body
@@ -69,7 +71,7 @@ export async function POST(request: NextRequest) {
     const document = await prisma.document.findFirst({
       where: {
         id: documentId,
-        uploadedBy: user.id
+        uploadedBy: session.user.id
       }
     })
 

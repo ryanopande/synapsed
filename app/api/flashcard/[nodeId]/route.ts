@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/db/prisma';
-import { requirePathwayNodeAccess } from '@/lib/auth';
+import { prisma } from '@/lib/prisma';
 
 interface FlashcardData {
   question: string;
@@ -16,9 +15,6 @@ export async function GET(
 ) {
   try {
     const { nodeId } = await params;
-    const access = await requirePathwayNodeAccess(nodeId);
-    if (!access.ok) return access.response;
-
     const deck = await prisma.flashcardDeck.findUnique({
       where: { nodeId },
       include: { cards: { orderBy: { order: 'asc' } } }
@@ -41,9 +37,6 @@ export async function PATCH(
 ) {
   try {
     const { nodeId } = await params;
-    const access = await requirePathwayNodeAccess(nodeId);
-    if (!access.ok) return access.response;
-
     const { cards } = await request.json();
     
     const deck = await prisma.flashcardDeck.update({

@@ -1,4 +1,4 @@
-import { prisma } from '@/lib/db/prisma';
+import { prisma } from '@/lib/prisma';
 import { Content } from '@/lib/types/content';
 
 export interface CacheEntry {

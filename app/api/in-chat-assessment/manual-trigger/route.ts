@@ -1,32 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireUser } from '@/lib/auth';
-import { invokeAgent } from '@/lib/agent/tutorAgent';
-import { ConversationService } from '@/lib/agent/conversationService';
+import { invokeAgent } from '@/lib/agent/simple-agent';
 
 export async function POST(request: NextRequest) {
   try {
-    const authResult = await requireUser();
-    if (!authResult.ok) return authResult.response;
-    const { user } = authResult;
-    const userId = user.id;
-
     const body = await request.json();
-    const { topic, nodeTitle, classId, lessonId } = body;
+    const { topic, nodeTitle, classId, userId, threadId } = body;
 
-    if (!topic) {
+    if (!topic || !userId) {
       return NextResponse.json(
-        { error: 'Missing required field: topic' },
+        { error: 'Missing required fields: topic and userId' },
         { status: 400 }
       );
     }
-
-    // The quiz is saved under the student's lesson conversation, which is how submissions
-    // are tied back to the student who received it.
-    const conversation = await ConversationService.getOrCreateConversation({
-      userId,
-      classId: classId || undefined,
-      lessonId: lessonId || undefined,
-    });
 
     // Create a prompt that will trigger the agent to use createInChatAssessment tool
     const prompt = `Please create an in-chat assessment to evaluate my understanding of: "${topic}"${nodeTitle ? ` (related to: ${nodeTitle})` : ''}.
@@ -36,11 +21,9 @@ Generate 3-5 questions at an intermediate difficulty level that will help me tes
     // Invoke agent with the prompt
     const agentResponse = await invokeAgent(
       prompt,
-      conversation.threadId,
+      threadId,
       classId,
-      userId,
-      conversation.id,
-      lessonId
+      userId
     );
 
     if (!agentResponse.inChatAssessmentData) {

@@ -6,10 +6,10 @@ import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
-import { useSession } from '@/lib/auth/client';
-import { ClassTabs } from '@/components/student/dashboard/ClassTabs';
+import { useSession } from 'next-auth/react';
+import { ClassTabs } from '@/components/student/ClassTabs';
 
-const SynapsedFlow = dynamic(() => import('@/components/pathway/PathwayDisplay'), {
+const SynapsedFlow = dynamic(() => import('@/components/Synapses/Pathway/PathwayDisplay'), {
   ssr: false,
   loading: () => null,
 });

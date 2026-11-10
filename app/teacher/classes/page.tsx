@@ -1,6 +1,6 @@
 // app/teacher/classes/page.tsx
-import {auth} from "@/lib/auth"
-import ClassesPage from "./ClassesClientPage";
+import {auth} from "@/auth"
+import ClassesPage from "./classeClientPage";
 
 export default async function Page() {
   const session = await auth() ;

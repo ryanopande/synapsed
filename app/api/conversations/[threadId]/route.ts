@@ -1,20 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { ConversationService } from '@/lib/agent/conversationService';
-import { prisma } from '@/lib/db/prisma';
-import { requireUser } from '@/lib/auth';
-
-/** The signed-in user's conversation with this threadId, or an error response. */
-async function getOwnConversation(threadId: string) {
-  const authResult = await requireUser();
-  if (!authResult.ok) return { response: authResult.response };
-
-  const conversation = await ConversationService.getConversationByThreadId(threadId);
-  // Report another user's thread as missing rather than revealing that it exists.
-  if (!conversation || conversation.userId !== authResult.user.id) {
-    return { response: NextResponse.json({ error: 'Conversation not found' }, { status: 404 }) };
-  }
-  return { conversation };
-}
+import { ConversationService } from '@/lib/agent/conversation-service';
+import { prisma } from '@/lib/prisma';
 
 // Get a specific conversation by thread ID
 export async function GET(
@@ -28,8 +14,11 @@ export async function GET(
       return NextResponse.json({ error: 'Thread ID is required' }, { status: 400 });
     }
 
-    const { conversation, response } = await getOwnConversation(threadId);
-    if (response) return response;
+    const conversation = await ConversationService.getConversationByThreadId(threadId);
+
+    if (!conversation) {
+      return NextResponse.json({ error: 'Conversation not found' }, { status: 404 });
+    }
 
     return NextResponse.json({ conversation });
   } catch (error) {
@@ -58,8 +47,11 @@ export async function PUT(
       return NextResponse.json({ error: 'Title is required' }, { status: 400 });
     }
 
-    const { conversation: existing, response } = await getOwnConversation(threadId);
-    if (response) return response;
+    // Get the conversation first to get userId
+    const existing = await ConversationService.getConversationByThreadId(threadId);
+    if (!existing) {
+      return NextResponse.json({ error: 'Conversation not found' }, { status: 404 });
+    }
 
     const conversation = await ConversationService.saveConversation({
       threadId,
@@ -91,8 +83,11 @@ export async function DELETE(
       return NextResponse.json({ error: 'Thread ID is required' }, { status: 400 });
     }
 
-    const { response } = await getOwnConversation(threadId);
-    if (response) return response;
+    // Get the conversation first
+    const conversation = await ConversationService.getConversationByThreadId(threadId);
+    if (!conversation) {
+      return NextResponse.json({ error: 'Conversation not found' }, { status: 404 });
+    }
 
     await prisma.conversation.delete({
       where: { threadId },

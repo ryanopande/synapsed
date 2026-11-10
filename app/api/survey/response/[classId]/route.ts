@@ -1,15 +1,11 @@
-import { prisma } from "@/lib/db/prisma";
+import { prisma } from "@/lib/prisma";
 import { NextRequest, NextResponse } from "next/server";
-import { requireClassProfessor } from "@/lib/auth";
 
 type SurveyAnswer = { questionId: string; answer: string };
 type SurveyQuestion = { id: string; text: string; [key: string]: unknown };
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ classId: string }> }) {
   const { classId } = await params;
-  const authResult = await requireClassProfessor(classId);
-  if (!authResult.ok) return authResult.response;
-
   const { searchParams } = new URL(req.url);
   const surveyId = searchParams.get('surveyId');
 

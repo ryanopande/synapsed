@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/db/prisma';
+import { prisma } from '@/lib/prisma';
 import type { PrismaClient } from '@prisma/client';
-import { requireUser } from '@/lib/auth';
+import { auth } from '@/auth';
 
 type PrismaWithLessonNote = PrismaClient & {
   lessonNote: {
@@ -32,9 +32,10 @@ async function resolvePathwayNode(studentId: string, classId: string, nodeKey: s
 
 export async function GET(request: NextRequest) {
   try {
-    const authResult = await requireUser();
-    if (!authResult.ok) return authResult.response;
-    const { user } = authResult;
+    const session = await auth();
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
 
     const searchParams = request.nextUrl.searchParams;
     const classId = searchParams.get('classId') || '';
@@ -45,7 +46,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'classId and one of (nodeId, dbNodeId) are required' }, { status: 400 });
     }
 
-    const studentId = user.id;
+    const studentId = session.user.id;
     let node: NodeRecord | null = null;
     if (dbNodeId) {
       const found = await prisma.pathwayNode.findFirst({ where: { id: dbNodeId }, select: { id: true, title: true, nodeId: true } });
@@ -87,9 +88,10 @@ export async function GET(request: NextRequest) {
 
 export async function PATCH(request: NextRequest) {
   try {
-    const authResult = await requireUser();
-    if (!authResult.ok) return authResult.response;
-    const { user } = authResult;
+    const session = await auth();
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
 
     const body = await request.json();
     const { classId, nodeId: nodeKey, dbNodeId, content, title } = body as {
@@ -104,7 +106,7 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: 'classId and one of (nodeId, dbNodeId) and content are required' }, { status: 400 });
     }
 
-    const studentId = user.id;
+    const studentId = session.user.id;
     let node: NodeRecord | null = null;
     if (dbNodeId) {
       const found = await prisma.pathwayNode.findFirst({ where: { id: dbNodeId }, select: { id: true, title: true, nodeId: true } });
@@ -165,9 +167,10 @@ export async function PATCH(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const authResult = await requireUser();
-    if (!authResult.ok) return authResult.response;
-    const { user } = authResult;
+    const session = await auth();
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
 
     const body = await request.json();
     const { classId, nodeId: nodeKey, dbNodeId, action, selectedText, outputBlocks, outputMarkdown } = body as {
@@ -184,7 +187,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'classId and one of (nodeId, dbNodeId), action, outputBlocks are required' }, { status: 400 });
     }
 
-    const studentId = user.id;
+    const studentId = session.user.id;
     let node: NodeRecord | null = null;
     if (dbNodeId) {
       const found = await prisma.pathwayNode.findFirst({ where: { id: dbNodeId }, select: { id: true, title: true, nodeId: true } });

@@ -1,24 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { invokeAgent } from '@/lib/agent/tutorAgent';
-import { ConversationService } from '@/lib/agent/conversationService';
-import { requireClassMember, requireUser } from '@/lib/auth';
+import { invokeAgent } from '@/lib/agent/simple-agent';
+import { ConversationService } from '@/lib/agent/conversation-service';
 
 export async function POST(request: NextRequest) {
   try {
-    const authResult = await requireUser();
-    if (!authResult.ok) return authResult.response;
-    // Conversations always belong to the signed-in user; a userId in the body is ignored.
-    const userId = authResult.user.id;
-
     const body = await request.json();
 
     // Support both old format (message) and new format (messages array)
-    const { message, messages, displayMessage, classId, lessonId, threadId } = body;
-
-    if (classId) {
-      const memberResult = await requireClassMember(classId);
-      if (!memberResult.ok) return memberResult.response;
-    }
+    const { message, messages, displayMessage, userId, classId, lessonId, threadId } = body;
 
     // If using the new format with messages array, extract the last user message
     let userMessage: string;
@@ -42,12 +31,16 @@ export async function POST(request: NextRequest) {
     }
 
     // Get or create conversation for persistence
-    const conversation = await ConversationService.getOrCreateConversation({
-      userId,
-      classId,
-      lessonId,
-      threadId, // Use provided threadId if exists, otherwise service will generate
-    });
+    let conversation;
+    
+    if (userId) {
+      conversation = await ConversationService.getOrCreateConversation({
+        userId,
+        classId,
+        lessonId,
+        threadId, // Use provided threadId if exists, otherwise service will generate
+      });
+    }
 
     // Use conversation's threadId if available, otherwise use provided threadId
     const agentThreadId = conversation?.threadId || threadId;
@@ -57,7 +50,7 @@ export async function POST(request: NextRequest) {
     // This ensures checkpointer and Prisma stay in sync
     let agentResponse;
     try {
-      agentResponse = await invokeAgent(userMessage, agentThreadId, classId, userId, conversation?.id, lessonId);
+      agentResponse = await invokeAgent(userMessage, agentThreadId, classId, userId, conversation?.id);
       
       // Agent invocation successful - now save messages to Prisma
       // This ensures checkpointer and Prisma are in sync

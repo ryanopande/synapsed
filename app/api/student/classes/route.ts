@@ -1,16 +1,14 @@
+// app/api/student/classes/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/db/prisma";
-import { isAdmin, requireUser } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 
-// GET: classes the signed-in student is enrolled in. Admins may pass ?enrollmentId=<studentId>.
 export async function GET(req: NextRequest) {
-  const authResult = await requireUser();
-  if (!authResult.ok) return authResult.response;
-  const { user } = authResult;
-
   const { searchParams } = new URL(req.url);
-  const requestedId = searchParams.get("enrollmentId");
-  const studentId = requestedId && isAdmin(user) ? requestedId : user.id;
+  const studentId = searchParams.get("enrollmentId");
+
+  if (!studentId) {
+    return NextResponse.json({ message: "Missing studentId" }, { status: 400 });
+  }
 
   try {
     const classes = await prisma.class.findMany({

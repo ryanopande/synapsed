@@ -200,11 +200,6 @@ export function QuizResultsModal({ quiz, onClose }: QuizResultsModalProps) {
                             ? 'In Progress'
                             : 'Not Started'}
                       </span>
-                      {!!student.needsGrading && (
-                        <span className="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
-                          {student.needsGrading} to grade
-                        </span>
-                      )}
                     </td>
                     <td className="px-6 py-4 text-sm text-slate-500 dark:text-slate-400">
                       {formatDate(student.submittedAt)}
@@ -236,7 +231,7 @@ export function QuizResultsModal({ quiz, onClose }: QuizResultsModalProps) {
                           onClick={() => handleViewDetails(student.id)}
                           className="text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 font-medium"
                         >
-                          {student.needsGrading ? 'Grade' : 'View / Edit Grade'}
+                          View Details
                         </button>
                       )}
                     </td>
@@ -259,23 +254,8 @@ export function QuizResultsModal({ quiz, onClose }: QuizResultsModalProps) {
       {selectedResponse && (
         <StudentQuizDetailModal
           studentResponse={selectedResponse}
-          quizId={quiz.id}
           quizTitle={quiz.title}
           onClose={() => setSelectedResponse(null)}
-          onGraded={(updated) => {
-            setResponses((prev) => prev.map((r) => (r.id === updated.id ? updated : r)))
-            setStudents((prev) =>
-              prev.map((st) =>
-                st.id === updated.studentId
-                  ? {
-                      ...st,
-                      score: updated.score,
-                      needsGrading: updated.answers.filter((a) => a.isCorrect === null).length,
-                    }
-                  : st,
-              ),
-            )
-          }}
         />
       )}
     </Dialog>

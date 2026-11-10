@@ -1,25 +1,19 @@
 // This section of the code handles the creation of a new class by a professor and retrieval of classes created by a professor.
 
 import { NextRequest, NextResponse } from "next/server"; // Importing NextRequest and NextResponse for handling HTTP requests and responses
-import { prisma } from "@/lib/db/prisma"; // Importing prisma for database operations
+import { prisma } from "@/lib/prisma"; // Importing prisma for database operations
 import { nanoid } from "nanoid"; // Importing nanoid for generating unique identifiers
-import { isAdmin, requireRole } from "@/lib/auth";
 
 // Function to handle POST requests for creating a new class
 export async function POST(req: NextRequest) {
   try {
-    const authResult = await requireRole("PROFESSOR");
-    if (!authResult.ok) return authResult.response;
-    // Classes are always created for the signed-in professor; a professorId in the body is ignored.
-    const professorId = authResult.user.id;
-
     // Extracting the request body
     const body = await req.json();
     // Extracting required fields from the request body
-    const { title, description } = body;
+    const { title, description, professorId } = body;
 
     // Validating required fields
-    if (!title) {
+    if (!title || !professorId) {
       // Returning an error response if required fields are missing
       return NextResponse.json({ message: "Missing required fields" }, { status: 400 });
     }
@@ -49,14 +43,15 @@ export async function POST(req: NextRequest) {
 
 // Function to handle GET requests for retrieving classes created by a professor
 export async function GET(req: NextRequest) {
-  const authResult = await requireRole("PROFESSOR");
-  if (!authResult.ok) return authResult.response;
-  const { user } = authResult;
-
-  // Professors see their own classes; admins may look up another professor's.
+  // Extracting the professorId from the URL search parameters
   const { searchParams } = new URL(req.url);
-  const requestedId = searchParams.get("professorId");
-  const professorId = requestedId && isAdmin(user) ? requestedId : user.id;
+  const professorId = searchParams.get("professorId");
+
+  // Validating if professorId is present
+  if (!professorId) {
+    // Returning an error response if professorId is missing
+    return NextResponse.json({ message: "Missing professorId" }, { status: 400 });
+  }
 
   try {
     // Fetching classes created by the professor from the database

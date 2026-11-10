@@ -1,9 +1,17 @@
 'use client';
 
-import { useSession } from '@/lib/auth/client';
+import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Shield, GraduationCap, User } from 'lucide-react';
+import { Role } from '@prisma/client';
+
+type UserWithRole = {
+  id: string;
+  email: string;
+  name?: string;
+  role?: Role;
+};
 
 export default function UnauthorizedPage() {
   const { data: session } = useSession();
@@ -54,9 +62,9 @@ export default function UnauthorizedPage() {
               <p className="text-sm text-gray-600">
                 Signed in as: <span className="font-medium">{session.user.email}</span>
               </p>
-              {session.user.role && (
+              {(session.user as UserWithRole).role && (
                 <p className="text-sm text-gray-600 mt-1">
-                  Role: <span className="font-medium capitalize">{session.user.role?.toLowerCase()}</span>
+                  Role: <span className="font-medium capitalize">{(session.user as UserWithRole).role?.toLowerCase()}</span>
                 </p>
               )}
             </div>

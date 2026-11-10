@@ -1,32 +1,37 @@
 import { LoopsClient } from "loops";
 
-// Public endpoint: adds a landing-page visitor to the Loops waitlist.
 const loops = new LoopsClient(process.env.LOOPS_API_KEY as string);
 
-const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-// POST { email, name?, status? }: add a contact to the waitlist
 export async function POST(request: Request) {
-  try {
-    const { email, name, status } = await request.json();
 
-    if (typeof email !== "string" || !EMAIL.test(email)) {
-      return Response.json({ success: false, message: "A valid email is required" }, { status: 400 });
+try {
+
+    
+    const res = await request.json();
+
+    const email = res["email"];
+
+    const response = await loops.findContact({email: email});
+
+    //console.log(`The findContact response is: ${response}`)
+
+    if (response.length != 0){
+
+        return Response.json({message: "User already exists"})
     }
 
-    const existing = await loops.findContact({ email });
-    if (existing.length != 0) {
-      return Response.json({ success: true, message: "User already exists" });
-    }
+    // Note: updateContact() will create or update a contact
+    const resp: {
+        success: boolean,
+        id?: string,
+        message?: string
+    } = await loops.createContact(email); //create a contact
 
-    const properties: Record<string, string> = {};
-    if (typeof name === "string" && name.trim()) properties.firstName = name.trim();
-    if (typeof status === "string" && status) properties.userGroup = status;
+    return Response.json({ success: resp.success });
 
-    const resp = await loops.createContact(email, properties);
-    return Response.json({ success: resp.success }, { status: resp.success ? 200 : 502 });
-  } catch (error) {
+} catch (error) {
     console.error(`An error occured while sending the email to the server: ${error}`);
-    return Response.json({ success: false }, { status: 500 });
-  }
+    return Response.json({ success: false });
+}
+  
 }

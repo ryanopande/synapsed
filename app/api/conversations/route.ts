@@ -1,18 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { ConversationService } from '@/lib/agent/conversationService';
-import { requireUser } from '@/lib/auth';
+import { ConversationService } from '@/lib/agent/conversation-service';
 
-// Conversations always belong to the signed-in user; any userId sent by the client is ignored.
-
-// Get all conversations for the signed-in user
+// Get all conversations for a user
 export async function GET(req: NextRequest) {
   try {
-    const authResult = await requireUser();
-    if (!authResult.ok) return authResult.response;
-    const userId = authResult.user.id;
-
     const { searchParams } = new URL(req.url);
+    const userId = searchParams.get('userId');
     const limit = parseInt(searchParams.get('limit') || '20');
+
+    if (!userId) {
+      return NextResponse.json({ error: 'User ID is required' }, { status: 400 });
+    }
 
     const conversations = await ConversationService.getUserConversations(userId, limit);
 
@@ -29,19 +27,10 @@ export async function GET(req: NextRequest) {
 // Create a new conversation
 export async function POST(req: NextRequest) {
   try {
-    const authResult = await requireUser();
-    if (!authResult.ok) return authResult.response;
-    const userId = authResult.user.id;
+    const { threadId, userId, classId, lessonId, title } = await req.json();
 
-    const { threadId, classId, lessonId, title } = await req.json();
-
-    if (!threadId) {
-      return NextResponse.json({ error: 'Thread ID is required' }, { status: 400 });
-    }
-
-    const existing = await ConversationService.getConversationByThreadId(threadId);
-    if (existing && existing.userId !== userId) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    if (!threadId || !userId) {
+      return NextResponse.json({ error: 'Thread ID and User ID are required' }, { status: 400 });
     }
 
     const conversation = await ConversationService.saveConversation({

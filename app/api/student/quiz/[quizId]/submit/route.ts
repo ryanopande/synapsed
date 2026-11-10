@@ -1,8 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireUser } from '@/lib/auth';
-import { prisma } from '@/lib/db/prisma';
+import { auth } from '@/auth';
+import { prisma } from '@/lib/prisma';
 import { QuizSubmitRequest, QuizSubmitResponse } from '@/lib/types/quizzes';
-import { autoGrade, computeScore, isChoiceQuestion } from '@/lib/quizzes/grading';
+
+interface QuizAnswerInput {
+  responseId: string;
+  questionId: string;
+  answerText: string | null;
+  optionId: string | null;
+  isCorrect: boolean;
+}
 
 // POST: Submit quiz answers
 export async function POST(
@@ -10,21 +17,17 @@ export async function POST(
   { params }: { params: Promise<{ quizId: string }> }
 ) {
   try {
-    const authResult = await requireUser();
-    if (!authResult.ok) return authResult.response;
-    const { user } = authResult;
+    const session = await auth();
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
 
     const { quizId } = await params;
     const body: QuizSubmitRequest = await request.json();
-    const { classId, answers } = body;
-    // Always submit as the signed-in student, never an id from the request body
-    const studentId = user.id;
+    const { studentId, classId, answers } = body;
 
-    if (!classId || !answers || !Array.isArray(answers)) {
+    if (!studentId || !classId || !answers || !Array.isArray(answers)) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
-    }
-    if (body.studentId && body.studentId !== studentId) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
     // Verify quiz exists and is published
@@ -71,6 +74,8 @@ export async function POST(
       return NextResponse.json({ error: 'Quiz already submitted' }, { status: 400 });
     }
 
+    // Calculate score
+    let correctCount = 0;
     const totalQuestions = quiz.questions.length;
 
     // Validate that all answers correspond to valid questions
@@ -85,22 +90,36 @@ export async function POST(
       );
     }
 
-    // Choice questions are graded against the answer key; short answers wait for the professor.
-    const quizAnswers = answers.flatMap((ans) => {
-      const question = quiz.questions.find(q => q.id === ans.questionId);
-      if (!question) return [];
-      const graded = autoGrade(question, { optionId: ans.optionId, answerText: ans.answerText });
-      const chosenText = question.options.find(o => o.id === graded.optionId)?.text ?? null;
-      return [{
-        questionId: ans.questionId,
-        // Keep the chosen option's text too, so answers can be re-graded if options are edited
-        answerText: isChoiceQuestion(question.type) ? chosenText : ans.answerText,
-        optionId: graded.optionId,
-        isCorrect: graded.isCorrect,
-      }];
-    });
+    const quizAnswers: QuizAnswerInput[] = answers
+      .map((ans) => {
+        const question = quiz.questions.find(q => q.id === ans.questionId);
+        if (!question) {
+          return null;
+        }
 
-    const { score, correct: correctCount, pending: pendingCount } = computeScore(totalQuestions, quizAnswers);
+        let isCorrect = false;
+        let selectedOption: { id: string; isCorrect: boolean } | undefined;
+        
+        if (question.type === 'MULTIPLE_CHOICE' || question.type === 'TRUE_FALSE') {
+          selectedOption = question.options.find(opt => opt.text === ans.answerText);
+          isCorrect = selectedOption?.isCorrect || false;
+          if (isCorrect) correctCount++;
+        } else if (question.type === 'SHORT_ANSWER') {
+          // Short answers are not auto-graded, marked as false
+          isCorrect = false; // Will be manually graded
+        }
+
+        return {
+          responseId: '', // Will be set after creating response
+          questionId: ans.questionId,
+          answerText: question.type === 'SHORT_ANSWER' ? ans.answerText : null,
+          optionId: selectedOption?.id || null,
+          isCorrect,
+        };
+      })
+      .filter((ans): ans is QuizAnswerInput => ans !== null);
+
+    const score = totalQuestions > 0 ? (correctCount / totalQuestions) * 100 : 0;
 
     // Create response and answers
     const response = await prisma.professorQuizResponse.create({
@@ -110,7 +129,12 @@ export async function POST(
         score,
         submittedAt: new Date(),
         answers: {
-          create: quizAnswers,
+          create: quizAnswers.map((ans) => ({
+            questionId: ans.questionId,
+            answerText: ans.answerText,
+            optionId: ans.optionId,
+            isCorrect: ans.isCorrect,
+          })),
         },
       },
     });
@@ -121,7 +145,6 @@ export async function POST(
       score,
       totalQuestions,
       correctCount,
-      pendingCount,
     };
 
     return NextResponse.json(submitResponse, { status: 200 });

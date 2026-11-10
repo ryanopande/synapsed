@@ -1,12 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { callOpenAI, callClaude, callGemini } from '@/lib/editor/models';
-import { requireUser } from '@/lib/auth';
+import { callOpenAI, callClaude, callGemini } from './helpers';
 
 export async function POST(request: NextRequest) {
   try {
-    const authResult = await requireUser();
-    if (!authResult.ok) return authResult.response;
-
     const body = await request.json();
     
     if (!body || !body.prompt) {

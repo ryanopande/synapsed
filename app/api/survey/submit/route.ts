@@ -1,21 +1,13 @@
-import { prisma } from "@/lib/db/prisma";
+import { prisma } from "@/lib/prisma";
 import { NextRequest, NextResponse } from "next/server";
-import { computeMastery } from "@/lib/course/mastery";
-import type { CourseTopic } from "@/lib/course/types";
-import { requireEnrolledStudent, requireStudentOrClassProfessor } from "@/lib/auth";
 
 export async function POST(req: NextRequest) {
   try {
-    const { classId, surveyId, answers } = await req.json();
+    const { studentId, classId, surveyId, answers } = await req.json();
 
-    if (!classId || !answers || !Array.isArray(answers)) {
+    if (!studentId || !classId || !answers || !Array.isArray(answers)) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
     }
-
-    // Students submit their own answers; a studentId in the body is ignored.
-    const authResult = await requireEnrolledStudent(classId);
-    if (!authResult.ok) return authResult.response;
-    const studentId = authResult.user.id;
 
     // If surveyId not provided, find the active survey for this class
     let activeSurveyId = surveyId;
@@ -41,7 +33,7 @@ export async function POST(req: NextRequest) {
       where: { id: activeSurveyId }
     });
 
-    if (!survey || survey.classId !== classId || survey.status !== 'ACTIVE') {
+    if (!survey || survey.status !== 'ACTIVE') {
       return NextResponse.json({ 
         error: "This survey is not currently active" 
       }, { status: 400 });
@@ -83,27 +75,6 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // Best-effort mastery snapshot; pathway generation recomputes it if this is skipped.
-    try {
-      const cls = await prisma.class.findUnique({ where: { id: classId }, select: { topicMap: true } });
-      const topics = Array.isArray(cls?.topicMap) ? (cls!.topicMap as unknown as CourseTopic[]) : [];
-      const questions = Array.isArray(survey.questions) ? survey.questions : [];
-      if (topics.length > 0) {
-        await prisma.studentSurveyResponse.updateMany({
-          where: { studentId, surveyId: activeSurveyId },
-          data: {
-            mastery: computeMastery(
-              questions as Parameters<typeof computeMastery>[0],
-              formattedAnswers as Parameters<typeof computeMastery>[1],
-              topics
-            ) as unknown as object,
-          },
-        });
-      }
-    } catch (error) {
-      console.error("[SURVEY_SUBMIT_MASTERY]", error);
-    }
-
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("[SURVEY_SUBMIT]", error);
@@ -123,9 +94,6 @@ export async function GET(req: NextRequest) {
     if (!studentId || !classId) {
       return NextResponse.json({ error: "Missing studentId or classId" }, { status: 400 });
     }
-
-    const authResult = await requireStudentOrClassProfessor(classId, studentId);
-    if (!authResult.ok) return authResult.response;
 
     // If surveyId not provided, find the active survey
     let activeSurveyId = surveyId;

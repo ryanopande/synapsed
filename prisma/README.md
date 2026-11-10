@@ -18,7 +18,7 @@ npm run build
 
 Connection string: `DATABASE_URL` in `.env` (MongoDB).
 
-Client singleton used by the app: [`../lib/prisma.ts`](../lib/db/prisma.ts).
+Client singleton used by the app: [`../lib/prisma.ts`](../lib/prisma.ts).
 
 Optional seed: `seed.ts` (demo ADMIN / PROFESSOR / STUDENT users). Run with your usual Prisma seed workflow if configured.
 
@@ -93,12 +93,12 @@ Also present: `schema.prisma.backup`, `prisma.config.ts` (minimal / unused for d
 2. `npx prisma generate`.
 3. Apply to Mongo carefully (Prisma + Mongo does not use SQL migrations the same way as Postgres — coordinate with the team’s deployment practice).
 4. Update API/`lib` types and any seed scripts.
-5. If models affect surveys/pathways, check [`docs/features/survey-system.md`](../docs/features/survey-system.md) and study coupling.
+5. If models affect surveys/pathways, check [`../SURVEY_SYSTEM_README.md`](../SURVEY_SYSTEM_README.md) and study coupling.
 
 ---
 
 ## Related
 
-- Auth: `../lib/auth/config.ts`, `../lib/auth/index.ts`
-- Agent persistence: `../lib/agent/conversationService.ts`
+- Auth: `../lib/authOptions.ts`, `../auth.ts`
+- Agent persistence: `../lib/agent/conversation-service.ts`
 - Study seed API: `../app/api/study/seed`

@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { signOutToSignIn } from "@/lib/auth/client"
+import { signOut } from "next-auth/react"
 
 export default function ChooseRolePage() {
   const [role, setRole] = useState("STUDENT")
@@ -18,7 +18,7 @@ export default function ChooseRolePage() {
       body: JSON.stringify({ role }),
     })
     if (res.ok) {
-      await signOutToSignIn()
+      await signOut({ callbackUrl: "/sign-in" })
     }
   }
 
@@ -31,7 +31,7 @@ export default function ChooseRolePage() {
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-6">
             <RadioGroup defaultValue={role} onValueChange={setRole} className="space-y-3">
-              {["STUDENT", "PROFESSOR"].map((option) => (
+              {["STUDENT", "PROFESSOR", "ADMIN"].map((option) => (
                 <div key={option} className="flex items-center space-x-3">
                   <RadioGroupItem value={option} id={option.toLowerCase()} />
                   <Label htmlFor={option.toLowerCase()} className="text-base font-medium capitalize">

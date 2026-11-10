@@ -2,11 +2,11 @@
 
 LangGraph-based tutoring agent for Synapsed with shared memory across text, visual, and voice interactions.
 
-**Navigation:** [Root hub](../../README.md) · [Architecture decisions](../../docs/ARCHITECTURE.md) · [Ops quickstart](../../docs/features/agent-quickstart.md) · [Tools](./tools/README.md) · [Parent `lib/`](../README.md)
+**Navigation:** [Root hub](../../README.md) · [Architecture decisions](../../docs/ARCHITECTURE.md) · [Ops quickstart](../../AGENT_QUICKSTART.md) · [Tools](./tools/README.md) · [Parent `lib/`](../README.md)
 
 ## Core Architecture
 
-- **Single reasoning brain**: `lib/agent/tutorAgent.ts` is the authoritative tutor logic.
+- **Single reasoning brain**: `lib/agent/simple-agent.ts` is the authoritative tutor logic.
 - **Shared memory**: all turns use the same `threadId` in LangGraph checkpointer state.
 - **Single persistence path**: conversation messages are stored through `ConversationService`.
 - **Multimodal outputs**:
@@ -16,7 +16,7 @@ LangGraph-based tutoring agent for Synapsed with shared memory across text, visu
 
 ## Current Tools
 
-Defined in `lib/agent/tools` and registered in `tutorAgent.ts`:
+Defined in `lib/agent/tools` and registered in `simple-agent.ts`:
 
 - `searchClassContent`: RAG search over class content
 - `createInChatAssessment`: generated graded forms for understanding checks
@@ -54,24 +54,24 @@ This keeps one unified tutoring policy while allowing modality-specific instruct
 
 ## Voice Design (Option 2)
 
-Voice UX uses OpenAI realtime for low-latency audio transport while keeping agent reasoning in `tutorAgent`:
+Voice UX uses OpenAI realtime for low-latency audio transport while keeping agent reasoning in `simple-agent`:
 
 1. Browser streams audio via realtime.
 2. Finalized transcript is posted to `/api/voice-turn`.
-3. Backend invokes `tutorAgent` with same `threadId`.
+3. Backend invokes `simple-agent` with same `threadId`.
 4. Assistant text is sent back and spoken via realtime.
 5. Both voice user and assistant turns are appended to chat history.
 
 ## Reliability Notes
 
 - `app/api/voice-turn` deduplicates retries using `turnId`.
-- Dedup cache is currently in-memory (`lib/agent/voiceTurnStore.ts`) with TTL.
+- Dedup cache is currently in-memory (`lib/agent/voice-turn-store.ts`) with TTL.
 - Realtime barge-in is handled by canceling in-progress assistant audio generation when user starts speaking.
 
 ## Direct Usage Example
 
 ```typescript
-import { invokeAgent } from "@/lib/agent/tutorAgent";
+import { invokeAgent } from "@/lib/agent/simple-agent";
 
 const response = await invokeAgent(
   "Explain the chain rule visually.",

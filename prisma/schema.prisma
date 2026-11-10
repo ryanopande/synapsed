@@ -53,10 +53,6 @@ model User {
   // Professor Quiz relations
   professorQuizzes ProfessorQuiz[]
   professorQuizResponses ProfessorQuizResponse[]
-
-  // Professor feedback (written by professors, received by students)
-  feedbackGiven    ProfessorFeedback[] @relation("FeedbackAuthor")
-  feedbackReceived ProfessorFeedback[] @relation("FeedbackRecipient")
 }
 
 model Class {
@@ -75,10 +71,6 @@ model Class {
   // token to join class
   joinToken   String    @unique
 
-  // AI-derived outline of the course (CourseTopic[]), built from the syllabus + uploaded content
-  topicMap          Json?
-  topicMapUpdatedAt DateTime?
-
   materials   ClassMaterial[]
   // surveys (multiple per class)
   surveys       Survey[]
@@ -95,9 +87,6 @@ model Class {
   
   // Professor quizzes in this class
   professorQuizzes ProfessorQuiz[]
-
-  // Professor feedback to students in this class
-  professorFeedback ProfessorFeedback[]
 }
 
 model Account {
@@ -233,7 +222,6 @@ model StudentSurveyResponse {
   class      Class    @relation(fields: [classId], references: [id], onDelete: Cascade)
 
   answers    Json     // Array of { questionId, answer }
-  mastery    Json?    // Per-topic mastery computed from knowledge questions (see lib/survey/mastery.ts)
   submittedAt DateTime @default(now())
 
   @@unique([studentId, surveyId])
@@ -268,7 +256,6 @@ model PathwayNode {
   pathway       LearningPathway @relation(fields: [pathwayId], references: [id], onDelete: Cascade)
 
   nodeId        String   // This is the Gemini-generated ID (e.g. "node1", "topic_2")
-  topicId       String?  // CourseTopic.id from the class topic map this node covers
   title         String
   description   String
   type          String   // "topic", "subtopic", "resource", "assessment"
@@ -621,9 +608,6 @@ model ProfessorQuizResponse {
   student    User      @relation(fields: [studentId], references: [id], onDelete: Cascade)
   score      Float?    // Calculated score (0-100)
   submittedAt DateTime @default(now())
-  // Manual grading: when the professor sets the score directly it is kept through re-grades
-  scoreOverridden Boolean?
-  gradedAt   DateTime? // Last time the professor graded or updated this response
   
   // Relations
   answers    ProfessorQuizAnswer[]
@@ -661,18 +645,3 @@ enum QuestionType {
   TRUE_FALSE
 }
 
-// Written feedback from a professor to one student in one class
-model ProfessorFeedback {
-  id          String   @id @default(auto()) @map("_id") @db.ObjectId
-  classId     String   @db.ObjectId
-  class       Class    @relation(fields: [classId], references: [id], onDelete: Cascade)
-  studentId   String   @db.ObjectId
-  student     User     @relation("FeedbackRecipient", fields: [studentId], references: [id], onDelete: Cascade)
-  professorId String   @db.ObjectId
-  professor   User     @relation("FeedbackAuthor", fields: [professorId], references: [id], onDelete: Cascade)
-  message     String
-  createdAt   DateTime @default(now())
-
-  @@index([classId, studentId])
-  @@map("professor_feedback")
-}

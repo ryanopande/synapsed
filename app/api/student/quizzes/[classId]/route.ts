@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireUser } from '@/lib/auth';
-import { prisma } from '@/lib/db/prisma';
+import { auth } from '@/auth';
+import { prisma } from '@/lib/prisma';
 
 // GET: Fetch all published quizzes for a class that the student is enrolled in
 export async function GET(
@@ -8,13 +8,14 @@ export async function GET(
   { params }: { params: Promise<{ classId: string }> }
 ) {
   try {
-    const authResult = await requireUser();
-    if (!authResult.ok) return authResult.response;
-    const { user } = authResult;
+    const session = await auth();
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
 
     const { classId } = await params;
     const { searchParams } = new URL(request.url);
-    const studentId = searchParams.get('studentId') || user.id;
+    const studentId = searchParams.get('studentId') || session.user.id;
 
     // Verify student is enrolled in this class
     const enrollment = await prisma.classEnrollment.findFirst({

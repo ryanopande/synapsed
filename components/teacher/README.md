@@ -10,11 +10,10 @@ Parent: [`../README.md`](../README.md).
 
 | Path | Purpose |
 |---|---|
-| `layout/` | App shell for teacher routes: `TeacherSidebar`, `TopNav` |
-| `classes/` | Classes list helpers: `CreateClassModal` |
-| `class/` | Per-class hub tabs: info, students, content, surveys/pathways, assessments, analytics |
+| Root (`SideBar`, `TopNav`, `CreateClassModal`, …) | App shell for teacher routes |
+| `class/` | Per-class hub tabs: info, students, content, surveys/pathways, assessments |
 | `assessments/` | Quiz builder, OCR import, preview/results/publish |
 
-The class hub is driven by `/teacher/classes/[id]?tab=…`; see the tab table in [`../README.md`](../README.md#professor-class-hub--teacherclass).
+Class hub is driven by `/teacher/classes/[id]?tab=…`. Prefer `NewSurveyManagement` / related components over legacy `surveyManagement.tsx`.
 
-Surveys & pathways product docs: [`../../docs/features/survey-system.md`](../../docs/features/survey-system.md).
+Surveys & pathways product docs: [`../../SURVEY_SYSTEM_README.md`](../../SURVEY_SYSTEM_README.md).

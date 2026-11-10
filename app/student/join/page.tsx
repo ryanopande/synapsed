@@ -1,14 +1,12 @@
 'use client';
-import { Suspense, useState } from "react";
+import { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { useSession } from "@/lib/auth/client";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
 
-function JoinClassForm() {
-  // Invite links carry the class code as ?token=..., so it is filled in for the student.
-  const searchParams = useSearchParams();
-  const [token, setToken] = useState(searchParams.get("token") ?? "");
+export default function JoinClassPage() {
+  const [token, setToken] = useState("");
   const [loading, setLoading] = useState(false);
   const { data: session } = useSession();
   const router = useRouter();
@@ -60,13 +58,5 @@ function JoinClassForm() {
         </Button>
       </div>
     </div>
-  );
-}
-
-export default function JoinClassPage() {
-  return (
-    <Suspense fallback={null}>
-      <JoinClassForm />
-    </Suspense>
   );
 }

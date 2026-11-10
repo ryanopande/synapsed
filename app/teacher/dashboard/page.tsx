@@ -1,7 +1,7 @@
-import Sidebar from "@/components/teacher/layout/TeacherSidebar";
-import TopNav from "@/components/teacher/layout/TopNav";
-import { prisma } from "@/lib/db/prisma";
-import { auth } from "@/lib/auth";
+import Sidebar from "@/components/teacher/SideBar";
+import TopNav from "@/components/teacher/TopNav";
+import { prisma } from "@/lib/prisma";
+import { auth } from "@/auth";
 import Link from "next/link";
 import { Plus, Upload, Users, BookOpen } from "lucide-react";
 
@@ -51,7 +51,7 @@ export default async function TeacherDashboardPage() {
                   <Link href="/teacher/classes" className="btn-primary-emerald rounded-full px-4 py-2 flex items-center gap-2">
                     <Users className="h-4 w-4" /> Manage Classes
                   </Link>
-                  <Link href="/teacher/classes" className="btn-primary-emerald rounded-full px-4 py-2 flex items-center gap-2">
+                  <Link href="/upload" className="btn-primary-emerald rounded-full px-4 py-2 flex items-center gap-2">
                     <Upload className="h-4 w-4" /> Upload Material
                   </Link>
                   <Link href="/teacher/classes" className="btn-primary-emerald rounded-full px-4 py-2 flex items-center gap-2">
