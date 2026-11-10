@@ -1,14 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { auth } from "@/auth";
-import { prisma } from '@/lib/prisma'
+import { requireUser } from "@/lib/auth";
+import { prisma } from '@/lib/db/prisma'
 
 // GET /api/hotspot-notes - Get hotspot notes for a content reference
 export async function GET(request: NextRequest) {
   try {
-    const session = await auth()
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    const authResult = await requireUser();
+    if (!authResult.ok) return authResult.response;
+    const { user } = authResult;
 
     const { searchParams } = new URL(request.url)
     const contentReferenceId = searchParams.get('contentReferenceId')
@@ -22,7 +21,7 @@ export async function GET(request: NextRequest) {
       where: {
         id: contentReferenceId,
         document: {
-          uploadedBy: session.user.id
+          uploadedBy: user.id
         }
       }
     })
@@ -50,10 +49,9 @@ export async function GET(request: NextRequest) {
 // POST /api/hotspot-notes - Create a new hotspot note
 export async function POST(request: NextRequest) {
   try {
-    const session = await auth()  
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    const authResult = await requireUser();
+    if (!authResult.ok) return authResult.response;
+    const { user } = authResult;
 
     const body = await request.json()
     const { contentReferenceId, content, tags, color } = body
@@ -67,7 +65,7 @@ export async function POST(request: NextRequest) {
       where: {
         id: contentReferenceId,
         document: {
-          uploadedBy: session.user.id
+          uploadedBy: user.id
         }
       }
     })
@@ -82,7 +80,7 @@ export async function POST(request: NextRequest) {
         content,
         tags: tags || [],
         color,
-        createdBy: session.user.id
+        createdBy: user.id
       }
     })
 

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@/auth';
-import { prisma } from '@/lib/prisma';
-import { uploadQuizImageToR2 } from '@/lib/r2/uploadQuizImage';
+import { requireUser } from '@/lib/auth';
+import { prisma } from '@/lib/db/prisma';
+import { uploadQuizImageToR2 } from '@/lib/storage/uploadQuizImage';
 
 function bufferFromFile(file: File): Promise<Buffer> {
   return new Response(file.stream()).arrayBuffer().then(buf => Buffer.from(buf));
@@ -12,10 +12,9 @@ export async function POST(
   { params }: { params: Promise<{ quizId: string; questionId: string }> }
 ) {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const authResult = await requireUser();
+    if (!authResult.ok) return authResult.response;
+    const { user } = authResult;
 
     const { quizId, questionId } = await params;
 
@@ -33,7 +32,7 @@ export async function POST(
       return NextResponse.json({ error: 'Quiz not found' }, { status: 404 });
     }
 
-    if (quiz.professorId !== session.user.id) {
+    if (quiz.professorId !== user.id) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 

@@ -19,5 +19,4 @@ These are **not** wired into `package.json` scripts. Run with `npx tsx` / `ts-no
 
 ## Related
 
-- Survey system: [`../SURVEY_SYSTEM_README.md`](../SURVEY_SYSTEM_README.md)
-- Ad-hoc agent smoke test at repo root: `../test-simple-agent.js`
+- Survey system: [`docs/features/survey-system.md`](../docs/features/survey-system.md)

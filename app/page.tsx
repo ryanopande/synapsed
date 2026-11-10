@@ -1,11 +1,11 @@
-import { Navbar } from "@/components/landingPage/navBar"
-import { HeroSection } from "@/components/landingPage/heroSection"
-// import { ProductSnapshot } from "@/components/landingPage/productSnapShot"
-// import { HowItWorks } from "@/components/landingPage/howItWorks"
-// import { ResearchDriven } from "@/components/landingPage/researchDriven"
-// import { KeyFeatures } from "@/components/landingPage/keyFeatures"
-// import { WhoItsFor } from "@/components/landingPage/whoFor"
-// import { FinalCTA } from "@/components/landingPage/finalCTA"
+import { Navbar } from "@/components/landing/Navbar"
+import { HeroSection } from "@/components/landing/HeroSection"
+// import { ProductSnapshot } from "@/components/landing/ProductSnapshot"
+// import { HowItWorks } from "@/components/landing/HowItWorks"
+// import { ResearchDriven } from "@/components/landing/ResearchDriven"
+// import { KeyFeatures } from "@/components/landing/KeyFeatures"
+// import { WhoItsFor } from "@/components/landing/WhoItsFor"
+// import { FinalCTA } from "@/components/landing/FinalCTA"
 
 export default function Home() {
   return (

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@/auth';
-import { prisma } from '@/lib/prisma';
+import { requireUser } from '@/lib/auth';
+import { prisma } from '@/lib/db/prisma';
 
 // GET: Get a single quiz for student to take
 export async function GET(
@@ -8,14 +8,13 @@ export async function GET(
   { params }: { params: Promise<{ quizId: string }> }
 ) {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const authResult = await requireUser();
+    if (!authResult.ok) return authResult.response;
+    const { user } = authResult;
 
     const { quizId } = await params;
     const { searchParams } = new URL(request.url);
-    const studentId = searchParams.get('studentId') || session.user.id;
+    const studentId = searchParams.get('studentId') || user.id;
 
     // Fetch quiz
     const quiz = await prisma.professorQuiz.findUnique({

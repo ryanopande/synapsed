@@ -1,17 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@/auth';
-import { prisma } from '@/lib/prisma';
+import { requireUser } from '@/lib/auth';
+import { prisma } from '@/lib/db/prisma';
 
 // GET: Fetch quiz notifications (quizzes student hasn't started)
 export async function GET(request: NextRequest) {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const authResult = await requireUser();
+    if (!authResult.ok) return authResult.response;
+    const { user } = authResult;
 
     const { searchParams } = new URL(request.url);
-    const studentId = searchParams.get('studentId') || session.user.id;
+    const studentId = searchParams.get('studentId') || user.id;
 
     // Get all classes student is enrolled in
     const enrollments = await prisma.classEnrollment.findMany({

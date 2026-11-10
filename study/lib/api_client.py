@@ -45,17 +45,22 @@ def get_class_id() -> str:
     return class_id
 
 
+def _auth_headers(api_key: str | None = None) -> dict[str, str]:
+    """The study API key header; Synapsed API routes reject unauthenticated requests."""
+    load_study_env()
+    key = api_key or os.getenv("STUDY_API_KEY", "")
+    return {"x-study-api-key": key} if key else {}
+
+
 def post_json(path: str, body: dict[str, Any], *, api_key: str | None = None) -> dict[str, Any]:
-    headers = {"Content-Type": "application/json"}
-    if api_key:
-        headers["x-study-api-key"] = api_key
+    headers = {"Content-Type": "application/json", **_auth_headers(api_key)}
     response = requests.post(f"{get_base_url()}{path}", json=body, headers=headers, timeout=120)
     response.raise_for_status()
     return response.json()
 
 
 def get_json(path: str, *, params: dict[str, str] | None = None) -> dict[str, Any]:
-    response = requests.get(f"{get_base_url()}{path}", params=params, timeout=60)
+    response = requests.get(f"{get_base_url()}{path}", params=params, headers=_auth_headers(), timeout=60)
     response.raise_for_status()
     return response.json()
 
@@ -71,6 +76,7 @@ def upload_file(
             f"{get_base_url()}{path}",
             data={"classId": class_id, "category": category},
             files={"files": (file_path.name, handle, "application/pdf")},
+            headers=_auth_headers(),
             timeout=120,
         )
     response.raise_for_status()

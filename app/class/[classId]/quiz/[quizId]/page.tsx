@@ -1,8 +1,8 @@
 "use client";
 
 import { useParams } from "next/navigation";
-import { useSession } from "next-auth/react";
-import { QuizView } from "@/components/assessments/QuizView";
+import { useSession } from "@/lib/auth/client";
+import { QuizView } from "@/components/student/quizzes/QuizView";
 import { useRouter } from "next/navigation";
 
 export default function StudentQuizPage() {

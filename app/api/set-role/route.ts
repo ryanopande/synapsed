@@ -1,30 +1,33 @@
-import { auth } from "@/auth" // Importing the auth function for session management
-import { prisma } from "@/lib/prisma" // Importing prisma for database operations
-import { NextResponse } from "next/server" // Importing NextResponse for handling HTTP responses
-import { Role } from "@prisma/client" // Importing Role from Prisma client for role validation
+import { NextResponse } from "next/server"
+import { Role } from "@prisma/client"
+import { requireUser } from "@/lib/auth"
+import { prisma } from "@/lib/db/prisma"
 
-// Function to handle POST requests for setting a user's role
+// Roles a user may pick for themselves on /choose-role. ADMIN is assigned
+// directly in the database, never through this endpoint.
+const SELF_ASSIGNABLE_ROLES: Role[] = [Role.STUDENT, Role.PROFESSOR]
+
+// POST { role }: set the signed-in user's role after their first sign-in
 export async function POST(req: Request) {
-  // Attempting to authenticate the user session
-  const session = await auth()
-  // Extracting the role from the request body
-  const { role } = await req.json()
-  
-  // Logging the received role for debugging purposes
-  //console.log("Body receive in set-role:",role)
+  const authResult = await requireUser()
+  if (!authResult.ok) return authResult.response
+  const { user } = authResult
 
-  // Validating if the user is authenticated and the role is valid
-  if (!session?.user?.email || !Object.values(Role).includes(role)) {
-    // Returning an error response if the user is not authenticated or the role is invalid
-    return NextResponse.json({ error: "Unauthorized or invalid role" }, { status: 401 })
+  const { role } = await req.json()
+  if (!SELF_ASSIGNABLE_ROLES.includes(role)) {
+    return NextResponse.json({ error: "Invalid role" }, { status: 400 })
   }
 
-  // Updating the user's role in the database
+  // A role is chosen once; changing it later would bypass class ownership.
+  const existing = await prisma.user.findUnique({ where: { id: user.id }, select: { role: true } })
+  if (existing?.role && existing.role !== role) {
+    return NextResponse.json({ error: "Role is already set" }, { status: 403 })
+  }
+
   const updatedUser = await prisma.user.update({
-    where: { email: session.user.email },
+    where: { id: user.id },
     data: { role },
   })
- 
-  // Returning a success response with the updated role
-  return NextResponse.json({ success: true, role:updatedUser.role })
+
+  return NextResponse.json({ success: true, role: updatedUser.role })
 }

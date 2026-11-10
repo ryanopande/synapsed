@@ -1,6 +1,6 @@
 # Architecture & main decisions
 
-Cross-cutting design decisions for SynapsEd. For folder-level maps, start at the [root README](../README.md). For the AI tutor specifically, prefer [`lib/agent/README.md`](../lib/agent/README.md) and [`AGENT_QUICKSTART.md`](../AGENT_QUICKSTART.md).
+Cross-cutting design decisions for SynapsEd. For folder-level maps, start at the [root README](../README.md). For the AI tutor specifically, prefer [`lib/agent/README.md`](../lib/agent/README.md) and [`docs/features/agent-quickstart.md`](features/agent-quickstart.md).
 
 ---
 
@@ -30,25 +30,26 @@ lib/*      (domain logic: agent, RAG, pathways, surveys, R2, …)
 
 ## Auth & sessions
 
-- **NextAuth v5** with **JWT** sessions and **Prisma adapter** (`lib/authOptions.ts`).
-- Provider: **Google OAuth only**.
-- Entry: `auth.ts` exports `{ handlers, signIn, signOut, auth }`.
-- Role is stored on `User.role` (`STUDENT` | `PROFESSOR` | `ADMIN`).
-- First login often has `role: null` → `/choose-role` → `POST /api/set-role` → **sign out + sign in** so the JWT picks up the new role.
+**Decision:** one authentication parent, `lib/auth/`. Nothing else imports `next-auth` directly.
 
-### Middleware caveats
+- **NextAuth v5** with **JWT** sessions and **Prisma adapter** (`lib/auth/config.ts`); provider: **Google OAuth only**.
+- Role is stored on `User.role` (`STUDENT` | `PROFESSOR` | `ADMIN`) and copied into the JWT/session (`lib/auth/types.ts` types it).
+- First login has `role: null` → `/choose-role` → `POST /api/set-role` → **sign out + sign in** so the JWT picks up the role. A role is chosen once; ADMIN is never self-assignable.
 
-`middleware.ts` body mentions `/class` and `/admin`, but `config.matcher` is only:
+| Layer | Uses | Enforces |
+|---|---|---|
+| Pages | `middleware.ts` + `lib/auth/routes.ts` | Signed in, has a role, role may open `/teacher`, `/student`, `/class`, `/admin` |
+| API routes | `@/lib/auth` (`requireUser`, `requireRole`, `requireClassProfessor`, …) | Signed in, role, and ownership/membership of the class, survey, quiz or pathway |
+| Client components | `@/lib/auth/client` | Reads the session for display only; never a security boundary |
+| `study/` pipeline | `isStudyServiceRequest` (`x-study-api-key`) | Machine access to the handful of routes the research scripts call |
 
-```ts
-['/admin/:path*', '/teacher/:path*', '/student/:path*']
-```
+Rules:
 
-Implications:
+- API routes take the user from the session; IDs sent by the client (`userId`, `studentId`, `professorId`) are ignored or checked against it.
+- ADMIN passes every role and ownership check.
+- `routes.ts` stays free of Prisma/NextAuth imports so the edge middleware can use it.
 
-- `/class/*` is **not** middleware-protected by that matcher.
-- `/api/*` is explicitly skipped inside the middleware body when matched — and APIs are outside the matcher anyway. **API routes must enforce auth themselves.**
-- There is no `app/admin` tree today.
+The per-route access table is in [`app/api/README.md`](../app/api/README.md#access-control).
 
 ---
 
@@ -58,25 +59,25 @@ Implications:
 
 | Piece | Responsibility |
 |---|---|
-| `lib/agent/simple-agent.ts` | Authoritative tutor logic (LangGraph + tools) |
+| `lib/agent/tutorAgent.ts` | Authoritative tutor logic (LangGraph + tools) |
 | `lib/agent/prompts.ts` | Shared pedagogy + modality-specific prompts |
-| `lib/agent/conversation-service.ts` | Prisma persistence of turns |
+| `lib/agent/conversationService.ts` | Prisma persistence of turns |
 | `POST /api/agent-chat` | Text chat path |
 | `POST /api/session` | WebRTC SDP proxy to OpenAI Realtime (key stays server-side) |
 | `POST /api/voice-turn` | Commit voice transcript → `invokeAgent` → reply text |
 
 ### Voice “Option 2”
 
-OpenAI Realtime is **transport** (audio in/out, barge-in). Reasoning and memory writes go through `/api/voice-turn` with a required `turnId` for idempotency (`lib/agent/voice-turn-store.ts`, in-memory TTL).
+OpenAI Realtime is **transport** (audio in/out, barge-in). Reasoning and memory writes go through `/api/voice-turn` with a required `turnId` for idempotency (`lib/agent/voiceTurnStore.ts`, in-memory TTL).
 
-Sequence: [`diagrams/voice-feature.md`](../diagrams/voice-feature.md).
+Sequence: [`docs/features/voice-mode.md`](features/voice-mode.md).
 
 ### Dual memory
 
 1. **LangGraph MongoDB checkpointer** — graph state / tool loop continuity (same Mongo `DATABASE_URL`).
 2. **Prisma `Conversation` / `Message`** — user-visible chat history via `ConversationService`.
 
-Risks and drawbacks: [`MEMORY_MANAGEMENT_DRAWBACKS.md`](../MEMORY_MANAGEMENT_DRAWBACKS.md).
+Risks and drawbacks: [`docs/features/agent-memory-management.md`](features/agent-memory-management.md).
 
 One conversation per `(userId, classId, lessonId)` is the intended model.
 
@@ -84,11 +85,11 @@ One conversation per `(userId, classId, lessonId)` is the intended model.
 
 ## Gemini model split
 
-Defined in `lib/gemini-model.ts`:
+Defined in `lib/ai/gemini.ts`:
 
 | Env | Default | Used for |
 |---|---|---|
-| `GEMINI_AGENT_MODEL` | `gemini-2.5-flash` | LangGraph agent only (`bindTools` + checkpoints) |
+| `GEMINI_AGENT_MODEL` | `gemini-3-flash-preview` | LangGraph agent only (`bindTools` + checkpoints) |
 | `GEMINI_MODEL` | `gemini-3-flash-preview` | One-shot generation (pathways, surveys, flashcards, OCR quizzes, etc.) |
 
 **Why:** LangChain serialization of tool rounds omits Gemini 3 `thoughtSignature`. Until that is fixed (or the agent uses full `content.parts` history), the agent must stay on a 2.5 Flash-class model.
@@ -99,14 +100,14 @@ Defined in `lib/gemini-model.ts`:
 
 Typical flow for class materials:
 
-1. Upload file → **Cloudflare R2** (`lib/r2`)
-2. **Mistral OCR** → markdown (`lib/ocr` / `lib/rag`)
-3. **Page-aware chunking** (`lib/chunking`)
-4. Embed + store in **Pinecone** (`lib/pinecone`)
+1. Upload file → **Cloudflare R2** (`lib/storage`), orchestrated by `lib/rag/vectorizeMaterial.ts`
+2. **Mistral OCR** → markdown (`lib/ai/mistral.ts`)
+3. **Page-aware chunking** (`lib/rag`)
+4. Embed + store in **Pinecone** (`lib/rag`)
 5. Mark `ClassMaterial` vectorized in Prisma
 6. Agent tool `searchClassContent` queries Pinecone scoped to the class
 
-Syllabus extraction/structuring lives under `lib/syllabus` and related `/api/syllabus/*` routes.
+Syllabus extraction/structuring lives under `lib/syllabus` (`extractSyllabus.ts` is called directly after a syllabus upload) and `/api/syllabus/extract`.
 
 ---
 
@@ -114,15 +115,13 @@ Syllabus extraction/structuring lives under `lib/syllabus` and related `/api/syl
 
 1. Professor creates surveys (DRAFT → ACTIVE / ARCHIVED) — multi-survey per class.
 2. Student submits `StudentSurveyResponse`.
-3. Pathway generation uses survey + syllabus context and a **shared prompt spec**:
-   - TypeScript: `lib/learning-paths/pathwayPrompt.ts`
-   - Spec JSON: `study/data/prompts/pathway_generation_spec.json`
-4. Pathways stored as `LearningPathway` + `PathwayNode`; UI via React Flow (`components/Synapses/Pathway`).
+3. Pathway generation (`lib/pathways/generatePathway.ts`) plans against the class topic map (`lib/course/topicMap.ts`, built from syllabus + materials) and the student's per-topic mastery from the survey (`lib/course/mastery.ts`).
+4. Pathways stored as `LearningPathway` + `PathwayNode`; UI via React Flow (`components/pathway`).
 5. Professor approval / regenerate flows under `/api/pathway/*` and `/api/learning-paths/*`.
 
-Product/API detail: [`SURVEY_SYSTEM_README.md`](../SURVEY_SYSTEM_README.md).
+Product/API detail: [`docs/features/survey-system.md`](features/survey-system.md).
 
-**Research coupling:** The Python `study/` pipeline evaluates the same personalization idea offline (and optionally against the live API). Keep the prompt JSON in sync when changing pathway generation.
+**Research coupling:** The Python `study/` pipeline evaluates the same personalization idea offline (and optionally against the live API, authenticated with `STUDY_API_KEY`). It keeps its own prompt spec in `study/data/prompts/`.
 
 ---
 
@@ -130,15 +129,15 @@ Product/API detail: [`SURVEY_SYSTEM_README.md`](../SURVEY_SYSTEM_README.md).
 
 Route: `/class/[classId]/lesson/[nodeId]`.
 
-Modes (UI in `components/Lesson/`):
+Modes (UI in `components/lesson/`):
 
-- AI chat + voice + Excalidraw (`AiLesson/`)
-- Content / PDF (`contentPage/`)
-- Flashcards (`flashcard/`)
+- AI chat + voice + Excalidraw (`tutor/`)
+- Content / PDF (`content/`)
+- Flashcards (`flashcards/`, currently commented out in the lesson page)
 - In-chat assessments (Formedible)
 - Professor quizzes (separate quiz routes under `/class/.../quiz/...`)
 
-Notes use `LessonNote` + BlockNote; editor AI assist via `/api/editorAi` + `lib/Editor`.
+Notes use `LessonNote` + BlockNote; editor AI assist via `/api/editorAi` + `lib/editor`.
 
 ---
 
@@ -158,7 +157,7 @@ Schema map: [`prisma/README.md`](../prisma/README.md).
 - Path alias `@/*` → repo root (`tsconfig.json`).
 - shadcn **new-york** style under `components/ui` (`components.json`).
 - Ambient backgrounds: `bg-ambient-teacher`, `bg-ambient-light` (see `app/globals.css` / Tailwind config).
-- Pathway client state: Zustand store in `components/Synapses/Pathway/store.ts`.
+- Pathway client state: Zustand store in `components/pathway/pathwayStore.ts`.
 - Some lists use SWR (e.g. flashcard deck hook).
 
 ---

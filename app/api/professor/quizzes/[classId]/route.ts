@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@/auth';
-import { prisma } from '@/lib/prisma';
-import { CreateQuizRequest, QuestionInput, QuestionOptionInput } from '@/lib/types/quizzes';
-import { Prisma } from '@prisma/client';
+import { requireUser } from '@/lib/auth';
+import { prisma } from '@/lib/db/prisma';
+import { CreateQuizRequest } from '@/lib/types/quizzes';
+import { saveQuizQuestions } from '@/lib/quizzes/grading';
 
 // GET: List all quizzes for a class
 export async function GET(
@@ -10,10 +10,9 @@ export async function GET(
   { params }: { params: Promise<{ classId: string }> }
 ) {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const authResult = await requireUser();
+    if (!authResult.ok) return authResult.response;
+    const { user } = authResult;
 
     const { classId } = await params;
 
@@ -23,7 +22,7 @@ export async function GET(
       select: { professorId: true },
     });
 
-    if (!classRecord || classRecord.professorId !== session.user.id) {
+    if (!classRecord || classRecord.professorId !== user.id) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
@@ -77,6 +76,7 @@ export async function GET(
         createdAt: quiz.createdAt,
         updatedAt: quiz.updatedAt,
         publishedAt: quiz.publishedAt,
+        dueDate: quiz.dueDate,
         submissions,
         totalStudents,
         gradeAverage,
@@ -113,10 +113,9 @@ export async function POST(
   { params }: { params: Promise<{ classId: string }> }
 ) {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const authResult = await requireUser();
+    if (!authResult.ok) return authResult.response;
+    const { user } = authResult;
 
     const { classId } = await params;
 
@@ -126,7 +125,7 @@ export async function POST(
       select: { professorId: true },
     });
 
-    if (!classRecord || classRecord.professorId !== session.user.id) {
+    if (!classRecord || classRecord.professorId !== user.id) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
@@ -137,42 +136,34 @@ export async function POST(
       return NextResponse.json({ error: 'Title is required' }, { status: 400 });
     }
 
-    // Create quiz with questions and options
-    const quiz = await prisma.professorQuiz.create({
+    // Create the quiz, then its questions (shared with quiz updates so ids map the same way)
+    const created = await prisma.professorQuiz.create({
       data: {
         title: title.trim(),
         description: description?.trim() || null,
         classId,
-        professorId: session.user.id,
+        professorId: user.id,
         status: 'DRAFT',
-        questions: questions && Array.isArray(questions) ? {
-          create: questions.map((q: QuestionInput, index: number) => ({
-            text: q.text || '',
-            richTextContent: (q.richTextContent ?? null) as Prisma.InputJsonValue | null,
-            type: (typeof q.type === 'string' ? q.type.toUpperCase().replace('-', '_') : q.type) as 'MULTIPLE_CHOICE' | 'SHORT_ANSWER' | 'TRUE_FALSE',
-            imageUrl: q.imageUrl || null,
-            order: q.order || index + 1,
-            options: q.options && Array.isArray(q.options) ? {
-              create: q.options.map((opt: QuestionOptionInput, optIndex: number) => ({
-                text: opt.text || '',
-                isCorrect: opt.isCorrect || false,
-                order: opt.order || optIndex + 1,
-              })),
-            } : undefined,
-          })),
-        } : undefined,
       },
+      select: { id: true },
+    });
+    const idMap = questions && Array.isArray(questions)
+      ? await saveQuizQuestions(created.id, questions)
+      : {};
+
+    const quiz = await prisma.professorQuiz.findUnique({
+      where: { id: created.id },
       include: {
         questions: {
           include: {
-            options: true,
+            options: { orderBy: { order: 'asc' } },
           },
           orderBy: { order: 'asc' },
         },
       },
     });
 
-    return NextResponse.json({ quiz }, { status: 201 });
+    return NextResponse.json({ quiz, idMap }, { status: 201 });
   } catch (error) {
     console.error('Error creating quiz:', error);
     return NextResponse.json(

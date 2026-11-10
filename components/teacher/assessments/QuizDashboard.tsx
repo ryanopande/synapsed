@@ -5,7 +5,8 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { QuizTable } from './QuizTable';
 import { QuizResultsModal } from './QuizResultsModal';
-import { DashboardMetrics } from './DashboardMetrics';
+import { PublishQuizDialog } from './PublishQuizDialog';
+import { toast } from 'sonner';
 import { Quiz } from './types';
 import { Plus } from 'lucide-react';
 
@@ -30,6 +31,12 @@ export function QuizDashboard({
     quizId: string;
     action: 'publish' | 'archive';
   } | null>(null);
+  // Publishing (with optional due date) or changing a published quiz's due date
+  const [dueDateDialog, setDueDateDialog] = useState<{
+    quizId: string;
+    mode: 'publish' | 'edit-due-date';
+  } | null>(null);
+  const [isSavingDueDate, setIsSavingDueDate] = useState(false);
 
   // Load quizzes on mount
   useEffect(() => {
@@ -58,10 +65,7 @@ export function QuizDashboard({
     if (!quiz) return;
 
     if (quiz.status === 'draft' || quiz.status === 'archived') {
-      setConfirmationDialog({
-        quizId,
-        action: 'publish',
-      });
+      setDueDateDialog({ quizId, mode: 'publish' });
     } else {
       setConfirmationDialog({
         quizId,
@@ -110,6 +114,44 @@ export function QuizDashboard({
     }
   };
 
+  const handleSubmitDueDate = async (dueDate: Date | undefined) => {
+    if (!dueDateDialog) return;
+    const { quizId, mode } = dueDateDialog;
+    setIsSavingDueDate(true);
+    try {
+      const response = await fetch(`/api/professor/quiz/${quizId}/publish`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: mode === 'publish' ? 'publish' : 'update-due-date',
+          dueDate: dueDate ? dueDate.toISOString() : null,
+        }),
+      });
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Failed to save');
+      }
+      setQuizzes((prev) =>
+        prev.map((quiz) =>
+          quiz.id === quizId
+            ? {
+                ...quiz,
+                status: 'published',
+                dueDate: dueDate ? dueDate.toISOString() : null,
+                ...(mode === 'publish' && { publishedAt: new Date().toISOString() }),
+              }
+            : quiz,
+        ),
+      );
+      toast.success(mode === 'publish' ? 'Quiz published' : 'Due date updated');
+      setDueDateDialog(null);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to save');
+    } finally {
+      setIsSavingDueDate(false);
+    }
+  };
+
   const handleViewResults = (quizId: string) => {
     setSelectedQuizForResults(quizId);
   };
@@ -146,13 +188,8 @@ export function QuizDashboard({
           </div>
         ) : (
           <div className="grid grid-cols-12 gap-6">
-            {/* Metrics Panel */}
-            <div className="col-span-12 lg:col-span-3">
-              <DashboardMetrics quizzes={quizzes} />
-            </div>
-
-            {/* Quiz Table */}
-            <div className="col-span-12 lg:col-span-9">
+            {/* Quiz Table (quiz metrics live in the class Analytics tab) */}
+            <div className="col-span-12">
               {quizzes.length === 0 ? (
               <Card className="p-12 text-center">
                 <div className="flex flex-col items-center">
@@ -178,6 +215,7 @@ export function QuizDashboard({
                 onViewResults={handleViewResults}
                 onEdit={onEditQuiz}
                 onPreview={handlePreview}
+                onChangeDueDate={(quizId) => setDueDateDialog({ quizId, mode: 'edit-due-date' })}
               />
             )}
           </div>
@@ -194,6 +232,17 @@ export function QuizDashboard({
       )}
 
       {/* Confirmation Dialog */}
+      <PublishQuizDialog
+        open={!!dueDateDialog}
+        onOpenChange={(open) => {
+          if (!open) setDueDateDialog(null);
+        }}
+        onPublish={handleSubmitDueDate}
+        isLoading={isSavingDueDate}
+        mode={dueDateDialog?.mode}
+        initialDueDate={quizzes.find((q) => q.id === dueDateDialog?.quizId)?.dueDate ?? null}
+      />
+
       {confirmationDialog && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <Card className="w-full max-w-md p-6">

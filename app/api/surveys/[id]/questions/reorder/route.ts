@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@/lib/db/prisma";
+import { requireSurveyProfessor } from "@/lib/auth";
 
 // PUT /api/surveys/[id]/questions/reorder - Reorder questions
 export async function PUT(
@@ -18,6 +19,9 @@ export async function PUT(
         { status: 400 }
       );
     }
+
+    const authResult = await requireSurveyProfessor(surveyId);
+    if (!authResult.ok) return authResult.response;
 
     // Find the survey
     const survey = await prisma.survey.findUnique({

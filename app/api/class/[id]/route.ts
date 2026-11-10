@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
-import { auth } from "@/auth";
+import { prisma } from "@/lib/db/prisma";
+import { requireClassProfessor } from "@/lib/auth";
 
 function generateJoinToken() {
   const segment = (len: number) => Array.from({ length: len }, () => Math.floor(Math.random() * 36).toString(36)).join("").toUpperCase();
@@ -12,21 +12,16 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await auth();
-    if (!session?.user) {
-      return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
-    }
-
     const { id } = await params;
+    const authResult = await requireClassProfessor(id);
+    if (!authResult.ok) return authResult.response;
+
     const cls = await prisma.class.findUnique({
       where: { id },
       select: { id: true, title: true, description: true, joinToken: true, professorId: true }
     });
 
     if (!cls) return NextResponse.json({ message: "Class not found" }, { status: 404 });
-
-    // Optional: ensure professor owns class
-    // if (cls.professorId !== session.user.id) return NextResponse.json({ message: "Forbidden" }, { status: 403 });
 
     return NextResponse.json(cls);
   } catch (err) {
@@ -40,12 +35,10 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await auth();
-    if (!session?.user) {
-      return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
-    }
-
     const { id } = await params;
+    const authResult = await requireClassProfessor(id);
+    if (!authResult.ok) return authResult.response;
+
     const body = await req.json();
     const { title, description, regenerateJoinToken } = body as {
       title?: string;

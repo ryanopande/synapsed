@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@/auth';
-import { prisma } from '@/lib/prisma';
+import { requireUser } from '@/lib/auth';
+import { prisma } from '@/lib/db/prisma';
 
 // GET: Get all student responses for a quiz
 export async function GET(
@@ -8,10 +8,9 @@ export async function GET(
   { params }: { params: Promise<{ quizId: string }> }
 ) {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const authResult = await requireUser();
+    if (!authResult.ok) return authResult.response;
+    const { user } = authResult;
 
     const { quizId } = await params;
 
@@ -38,7 +37,7 @@ export async function GET(
       return NextResponse.json({ error: 'Quiz not found' }, { status: 404 });
     }
 
-    if (quiz.professorId !== session.user.id) {
+    if (quiz.professorId !== user.id) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
@@ -108,8 +107,10 @@ export async function GET(
         email: enrollment.student.email,
         status,
         submittedAt: response?.submittedAt || null,
-        score: response?.score || null,
+        score: response?.score ?? null,
         responseId: response?.id || null,
+        // Short answers (or questions without an answer key) the professor still has to grade
+        needsGrading: response ? response.answers.filter((a) => a.isCorrect === null).length : 0,
       };
     });
 
@@ -125,14 +126,15 @@ export async function GET(
         studentName: response.student.name || response.student.email,
         studentEmail: response.student.email,
         score: response.score,
+        scoreOverridden: !!response.scoreOverridden,
+        gradedAt: response.gradedAt,
         submittedAt: response.submittedAt,
-        answers: response.answers.map((answer) => {
+        // Skip answers to questions that were later deleted instead of failing the whole page
+        answers: response.answers.flatMap((answer) => {
           const question = questionMap.get(answer.questionId);
-          if (!question) {
-            throw new Error(`Question ${answer.questionId} not found`);
-          }
-          
-          return {
+          if (!question) return [];
+
+          return [{
             id: answer.id,
             questionId: answer.questionId,
             question: {
@@ -152,8 +154,8 @@ export async function GET(
             answerText: answer.answerText,
             optionId: answer.optionId,
             isCorrect: answer.isCorrect,
-          };
-        }),
+          }];
+        }).sort((a, b) => a.question.order - b.question.order),
       };
     });
 

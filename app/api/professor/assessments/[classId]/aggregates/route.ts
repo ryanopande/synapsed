@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
-import { auth } from '@/auth';
+import { prisma } from '@/lib/db/prisma';
+import { requireUser } from '@/lib/auth';
 
 // GET: Fetch aggregate statistics for a class
 export async function GET(
@@ -8,10 +8,9 @@ export async function GET(
   { params }: { params: Promise<{ classId: string }> }
 ) {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const authResult = await requireUser();
+    if (!authResult.ok) return authResult.response;
+    const { user } = authResult;
 
     const { classId } = await params;
 
@@ -21,7 +20,7 @@ export async function GET(
       select: { professorId: true, title: true },
     });
 
-    if (!classRecord || classRecord.professorId !== session.user.id) {
+    if (!classRecord || classRecord.professorId !== user.id) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 

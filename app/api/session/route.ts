@@ -1,10 +1,14 @@
 import { NextResponse } from "next/server";
+import { requireUser } from '@/lib/auth';
 
 // SDP proxy: keeps OPENAI_API_KEY on the server.
 // Browser sends WebRTC offer SDP; server forwards to OpenAI Realtime and
 // returns the answer SDP.
 export async function POST(req: Request) {
   try {
+    const authResult = await requireUser();
+    if (!authResult.ok) return authResult.response;
+
     const sdpOffer = await req.text();
 
     if (!process.env.OPENAI_API_KEY) {

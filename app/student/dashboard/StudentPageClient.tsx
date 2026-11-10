@@ -1,9 +1,9 @@
 'use client';
 
-import { useSession } from "next-auth/react";
+import { useSession } from "@/lib/auth/client";
 import { useRouter } from "next/navigation";
-import Sidebar from "@/components/student/StudentSideBar";
-import StudentDashboard from "@/components/student/StudentDashboard";
+import Sidebar from "@/components/student/StudentSidebar";
+import StudentDashboard from "@/components/student/dashboard/StudentDashboard";
 
 export default function StudentPageClient() {
   const { data: session, status } = useSession();

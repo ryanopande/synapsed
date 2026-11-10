@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@/lib/db/prisma";
 import { nanoid } from "nanoid";
+import { isStudyServiceRequest } from "@/lib/auth";
 
 type ProfileInput = {
   id: string;
@@ -97,13 +98,6 @@ const STANDARD_SURVEY_QUESTIONS: SurveyQuestion[] = [
   },
 ];
 
-function verifyApiKey(req: NextRequest, bodyKey?: string): boolean {
-  const expected = process.env.STUDY_API_KEY;
-  if (!expected) return false;
-  const headerKey = req.headers.get("x-study-api-key");
-  return headerKey === expected || bodyKey === expected;
-}
-
 function answersToJson(answers: Record<string, string>) {
   return Object.entries(answers).map(([questionId, answer]) => ({
     questionId,
@@ -132,7 +126,7 @@ export async function POST(req: NextRequest) {
       reset?: boolean;
     };
 
-    if (!verifyApiKey(req, apiKey)) {
+    if (!isStudyServiceRequest(req, apiKey)) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 

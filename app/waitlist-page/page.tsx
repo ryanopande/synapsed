@@ -19,6 +19,7 @@ export default function WaitlistPage() {
   })
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isSubmitted, setIsSubmitted] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target
@@ -32,11 +33,26 @@ export default function WaitlistPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsSubmitting(true)
+    setError(null)
 
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1500))
+    try {
+      const res = await fetch("/api/waitlist", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(formData),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok || data.success === false) {
+        setError(data.message ?? "We couldn't add you to the waitlist. Please try again.")
+        return
+      }
+    } catch {
+      setError("We couldn't reach the server. Please try again.")
+      return
+    } finally {
+      setIsSubmitting(false)
+    }
 
-    setIsSubmitting(false)
     setIsSubmitted(true)
 
     // Redirect after successful submission
@@ -128,7 +144,8 @@ export default function WaitlistPage() {
               </div>
             </CardContent>
 
-            <CardFooter>
+            <CardFooter className="flex-col gap-2">
+              {error && <p className="text-sm text-red-600 w-full">{error}</p>}
               <Button type="submit" className="w-full bg-purple-600 hover:bg-purple-700" disabled={isSubmitting}>
                 {isSubmitting ? "Submitting..." : "Join Waitlist"}
               </Button>

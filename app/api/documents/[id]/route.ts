@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { auth } from "@/auth";
-import { prisma } from '@/lib/prisma'
+import { requireUser } from "@/lib/auth";
+import { prisma } from '@/lib/db/prisma'
 
 // GET /api/documents/[id] - Get a specific document
 export async function GET(
@@ -8,16 +8,15 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await auth()
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    const authResult = await requireUser();
+    if (!authResult.ok) return authResult.response;
+    const { user } = authResult;
 
     const { id } = await params
     const document = await prisma.document.findFirst({
       where: {
         id: id,
-        uploadedBy: session.user.id
+        uploadedBy: user.id
       },
       include: {
         annotations: true,
@@ -49,10 +48,9 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await auth()
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    const authResult = await requireUser();
+    if (!authResult.ok) return authResult.response;
+    const { user } = authResult;
 
     const { id } = await params
     const body = await request.json()
@@ -61,7 +59,7 @@ export async function PUT(
     const document = await prisma.document.updateMany({
       where: {
         id: id,
-        uploadedBy: session.user.id
+        uploadedBy: user.id
       },
       data: {
         ...(name && { name }),
@@ -94,16 +92,15 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await auth()
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    const authResult = await requireUser();
+    if (!authResult.ok) return authResult.response;
+    const { user } = authResult;
 
     const { id } = await params
     const document = await prisma.document.deleteMany({
       where: {
         id: id,
-        uploadedBy: session.user.id
+        uploadedBy: user.id
       }
     })
 

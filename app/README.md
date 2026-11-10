@@ -12,11 +12,10 @@ Parent hub: [`../README.md`](../README.md).
 |---|---|---|
 | Root layout / landing | `layout.tsx`, `page.tsx`, `globals.css` | Session + theme providers; marketing landing |
 | Auth / onboarding | `sign-in/`, `choose-role/`, `unauthorized/`, `waitlist-page/` | Google sign-in, role pick, errors, waitlist |
-| Student | `student/dashboard/`, `student/join/` | Student home + join-by-token |
+| Student | `student/**` | Dashboard, join-by-token, achievements, feedback, settings |
 | Teacher (professor) | `teacher/**` | Dashboard, classes, assessments, settings |
 | Class learning surface | `class/[classId]/**` | Survey → pathway → lessons → quizzes |
 | APIs | `api/**` | See [`api/README.md`](./api/README.md) |
-| Dev / experimental pages | `chat/`, `query/`, `rag/`, `search/`, `upload/` | Internal tooling UIs — not primary product |
 
 Only three nested layouts today: root, `teacher/layout.tsx`, `student/dashboard/layout.tsx`.
 
@@ -31,7 +30,7 @@ Only three nested layouts today: root, `teacher/layout.tsx`, `student/dashboard/
 | `/sign-in` | `sign-in/page.tsx` | Google OAuth; redirect by role |
 | `/choose-role` | `choose-role/page.tsx` | Sets role via `/api/set-role`, then re-auth |
 | `/unauthorized` | `unauthorized/page.tsx` | Auth errors / forbidden |
-| `/waitlist-page` | `waitlist-page/page.tsx` | Waitlist UI |
+| `/waitlist-page` | `waitlist-page/page.tsx` | Waitlist signup → `/api/waitlist` (Loops) |
 
 ### Student
 
@@ -39,13 +38,16 @@ Only three nested layouts today: root, `teacher/layout.tsx`, `student/dashboard/
 |---|---|
 | `/student/dashboard` | `student/dashboard/page.tsx` (+ `StudentPageClient.tsx`) |
 | `/student/join` | `student/join/page.tsx` |
+| `/student/achievements` | `student/achievements/page.tsx` |
+| `/student/feedback` | `student/feedback/page.tsx` |
+| `/student/settings` | `student/settings/page.tsx` |
 
 ### Teacher (DB role: `PROFESSOR`)
 
 | Route | File | Notes |
 |---|---|---|
 | `/teacher/dashboard` | `teacher/dashboard/page.tsx` | Counts classes/students/materials |
-| `/teacher/classes` | `teacher/classes/page.tsx` | List |
+| `/teacher/classes` | `teacher/classes/page.tsx` (+ `ClassesClientPage.tsx`) | List |
 | `/teacher/classes/[id]` | `teacher/classes/[id]/page.tsx` | Hub with `?tab=` (info, students, content, survey-path, quizzes) |
 | `/teacher/assessments` | `teacher/assessments/**` | Quiz builder / preview |
 | `/teacher/settings` | `teacher/settings/page.tsx` | Settings |
@@ -83,11 +85,13 @@ Analytics tab may exist in comments / PRDs but is not the active default path.
 
 ## Auth middleware interaction
 
-`middleware.ts` only **matches** `/admin`, `/teacher`, `/student`. That means:
+`middleware.ts` matches `/teacher`, `/student`, `/class` and `/admin` and applies the rules in `lib/auth/routes.ts`:
 
-- Teacher/student dashboards are JWT + role gated.
-- `/class/*` pages are **outside** the matcher — do not assume middleware alone protects them.
-- APIs are not middleware-gated; check session inside handlers.
+- Signed-out visitors → `/sign-in` (with a `callbackUrl` back to the page).
+- Signed-in users without a role → `/choose-role`.
+- Wrong role → `/unauthorized`. `/teacher` is professors only, `/student` students only, `/class` both; ADMIN passes everywhere.
+- APIs are not middleware-gated; every route handler checks access with `lib/auth` (see [`api/README.md`](./api/README.md#access-control)).
+- Client components read the session via `@/lib/auth/client`.
 
 See [`../docs/ARCHITECTURE.md`](../docs/ARCHITECTURE.md).
 

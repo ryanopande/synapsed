@@ -67,12 +67,13 @@ export const createVisualLesson = new DynamicStructuredTool({
           .array(z.string())
           .optional()
           .describe("Key topics or concepts already discussed in the conversation"),
+        // Some models send lists here instead of a single string, so accept both.
         studentUnderstanding: z
-          .string()
+          .union([z.string(), z.array(z.string())])
           .optional()
           .describe("Brief assessment of what the student seems to understand or struggle with"),
         priorExplanations: z
-          .string()
+          .union([z.string(), z.array(z.string())])
           .optional()
           .describe("Key explanations or analogies already given that the diagram should reinforce"),
         studentLevel: z
@@ -97,8 +98,8 @@ export const createVisualLesson = new DynamicStructuredTool({
       learningGoal?: string;
       conversationContext?: {
         topicsCovered?: string[];
-        studentUnderstanding?: string;
-        priorExplanations?: string;
+        studentUnderstanding?: string | string[];
+        priorExplanations?: string | string[];
         studentLevel?: "beginner" | "intermediate" | "advanced";
       };
       previousDiagramSummaries?: string[];
@@ -131,10 +132,11 @@ export const createVisualLesson = new DynamicStructuredTool({
           contextLines.push(`Student level: ${conversationContext.studentLevel}`);
         if (conversationContext.topicsCovered?.length)
           contextLines.push(`Topics already covered: ${conversationContext.topicsCovered.join(", ")}`);
+        const asText = (v: string | string[]) => (Array.isArray(v) ? v.join("; ") : v);
         if (conversationContext.studentUnderstanding)
-          contextLines.push(`Student understanding: ${conversationContext.studentUnderstanding}`);
+          contextLines.push(`Student understanding: ${asText(conversationContext.studentUnderstanding)}`);
         if (conversationContext.priorExplanations)
-          contextLines.push(`Prior explanations to reinforce: ${conversationContext.priorExplanations}`);
+          contextLines.push(`Prior explanations to reinforce: ${asText(conversationContext.priorExplanations)}`);
       }
       if (previousDiagramSummaries?.length) {
         contextLines.push(
@@ -173,7 +175,7 @@ export const createVisualLesson = new DynamicStructuredTool({
         mcp_servers: [
           {
             type: "url",
-            url: "https://mcp.excalidraw.com",
+            url: "https://mcp.excalidraw.com/mcp",
             name: "excalidraw",
           },
         ],

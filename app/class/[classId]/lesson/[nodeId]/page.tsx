@@ -1,15 +1,17 @@
 'use client';
 
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 // import type { PartialBlock } from '@blocknote/core';
-// import Editor from '@/components/Lesson/AiLesson/Editor';
-import AiLessonLayout from '@/components/Lesson/AiLesson/AiLessonLayout';
+// import Editor from '@/components/lesson/tutor/NotesEditor';
+import AiLessonLayout from '@/components/lesson/tutor/AiLessonLayout';
 import { Button } from '@/components/ui/button';
-import { Sparkles, BookOpen, ArrowLeft, ChevronUp, ChevronDown } from 'lucide-react';
-//import { FlashcardsPanel } from '@/components/Lesson/flashcard/FlashcardsPanel';
-import ContentPage from '@/components/Lesson/contentPage/ContentPage';
-import { LessonNoteProvider } from '@/lib/context/LessonNoteContext';
+import { Sparkles, BookOpen, ArrowLeft, ChevronUp, ChevronDown, CheckCircle2, Lock } from 'lucide-react';
+import { toast } from 'sonner';
+import type { LessonAccess } from '@/lib/pathways/progress';
+//import { FlashcardsPanel } from '@/components/lesson/flashcards/FlashcardsPanel';
+import ContentPage from '@/components/lesson/content/ContentPage';
+import { LessonNoteProvider } from '@/components/lesson/LessonNoteContext';
 
 export default function LessonPage() {
 
@@ -33,6 +35,47 @@ export default function LessonPage() {
   const [showTopBar, setShowTopBar] = useState(true);
   const topBarRef = useRef<HTMLDivElement>(null);
   const [headerHeight, setHeaderHeight] = useState(0);
+  // Lesson lock + completion state. null = not this student's own pathway lesson (no gating).
+  const [access, setAccess] = useState<LessonAccess | null>(null);
+  const [accessChecked, setAccessChecked] = useState(false);
+  const [savingComplete, setSavingComplete] = useState(false);
+
+  const loadAccess = useCallback(async () => {
+    if (!nodeId) return;
+    try {
+      const res = await fetch(`/api/pathway/node/${nodeId}/complete`);
+      setAccess(res.ok ? await res.json() : null);
+    } catch {
+      setAccess(null);
+    } finally {
+      setAccessChecked(true);
+    }
+  }, [nodeId]);
+
+  useEffect(() => {
+    void loadAccess();
+    // Pop quizzes submitted in the chat can unlock completion; refresh when one is graded.
+    const onProgress = () => void loadAccess();
+    window.addEventListener('lesson-progress-changed', onProgress);
+    return () => window.removeEventListener('lesson-progress-changed', onProgress);
+  }, [loadAccess]);
+
+  const markLessonComplete = async () => {
+    if (!access?.canComplete || !nodeId) return;
+    setSavingComplete(true);
+    try {
+      const res = await fetch(`/api/pathway/node/${nodeId}/complete`, { method: 'POST' });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        toast.error(data.error || 'Could not mark this lesson complete');
+        return;
+      }
+      setAccess(data);
+      toast.success('Lesson complete! The next lesson in your pathway is unlocked.');
+    } finally {
+      setSavingComplete(false);
+    }
+  };
 
   // Note: fetchNote is now handled by LessonNoteProvider
 
@@ -161,8 +204,36 @@ export default function LessonPage() {
               </button> */}
             </div>
 
-            {/* Right spacer */}
-            <div className="w-10" />
+            {/* Lesson completion (hidden when this lesson isn't part of the student's own pathway) */}
+            {!access || access.locked ? (
+              <div className="w-10" />
+            ) : access.complete ? (
+              <Button variant="outline" disabled className="border-emerald-300 text-emerald-700 disabled:opacity-100">
+                <CheckCircle2 className="w-4 h-4 mr-2" />
+                Completed
+              </Button>
+            ) : access.canComplete ? (
+              <Button
+                onClick={markLessonComplete}
+                disabled={savingComplete}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white"
+              >
+                <CheckCircle2 className="w-4 h-4 mr-2" />
+                {savingComplete ? 'Saving...' : 'Mark lesson complete'}
+              </Button>
+            ) : (
+              <div className="text-right">
+                <Button variant="outline" disabled>
+                  <CheckCircle2 className="w-4 h-4 mr-2" />
+                  Pass a pop quiz ({access.passingScore}%+) to complete
+                </Button>
+                <p className="mt-1 text-xs text-slate-500">
+                  {access.bestPopQuizScore === null
+                    ? 'Use "Test My Understanding" in the chat'
+                    : `Best score so far: ${access.bestPopQuizScore}%`}
+                </p>
+              </div>
+            )}
           </div>
 
           {/* Toggle Button */}
@@ -194,6 +265,24 @@ export default function LessonPage() {
       )}
 
       {/* Main Content Area */}
+      {!accessChecked ? (
+        <div className="h-screen flex items-center justify-center text-slate-500">Loading lesson...</div>
+      ) : access?.locked ? (
+        <div className="h-screen flex items-center justify-center px-6" style={{ paddingTop: headerHeight }}>
+          <div className="max-w-md text-center space-y-4 bg-white rounded-2xl border border-slate-200 shadow-sm p-8">
+            <div className="mx-auto w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center">
+              <Lock className="w-6 h-6 text-slate-500" />
+            </div>
+            <h3 className="text-xl font-semibold text-slate-800">This lesson is locked</h3>
+            <p className="text-slate-600">
+              Complete <span className="font-medium">{access.waitingOn.join(' and ')}</span> first to unlock it.
+            </p>
+            <Button onClick={() => router.push(`/class/${classId}/pathway`)} className="bg-emerald-600 hover:bg-emerald-700 text-white">
+              Back to pathway
+            </Button>
+          </div>
+        </div>
+      ) : (
       <div className={`h-screen flex flex-1 min-h-0 relative transition-all duration-300`} style={{ paddingTop: showTopBar ? headerHeight : 16 }}>
         <div className="flex-1 flex flex-col min-h-0">
           <div className="flex-1 overflow-hidden min-h-0">
@@ -244,6 +333,7 @@ export default function LessonPage() {
           </div>
         </div>
       </div>
+      )}
       </div>
     </LessonNoteProvider>
   );

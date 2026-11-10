@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@/auth';
-import { prisma } from '@/lib/prisma';
-import { QuestionInput, QuestionOptionInput } from '@/lib/types/quizzes';
-import { Prisma } from '@prisma/client';
+import { requireUser } from '@/lib/auth';
+import { prisma } from '@/lib/db/prisma';
+import { regradeQuiz, saveQuizQuestions } from '@/lib/quizzes/grading';
 
 // GET: Get a single quiz
 export async function GET(
@@ -10,10 +9,9 @@ export async function GET(
   { params }: { params: Promise<{ quizId: string }> }
 ) {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const authResult = await requireUser();
+    if (!authResult.ok) return authResult.response;
+    const { user } = authResult;
 
     const { quizId } = await params;
 
@@ -40,7 +38,7 @@ export async function GET(
       return NextResponse.json({ error: 'Quiz not found' }, { status: 404 });
     }
 
-    if (quiz.professorId !== session.user.id) {
+    if (quiz.professorId !== user.id) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
@@ -60,10 +58,9 @@ export async function PUT(
   { params }: { params: Promise<{ quizId: string }> }
 ) {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const authResult = await requireUser();
+    if (!authResult.ok) return authResult.response;
+    const { user } = authResult;
 
     const { quizId } = await params;
 
@@ -77,7 +74,7 @@ export async function PUT(
       return NextResponse.json({ error: 'Quiz not found' }, { status: 404 });
     }
 
-    if (existingQuiz.professorId !== session.user.id) {
+    if (existingQuiz.professorId !== user.id) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
@@ -94,84 +91,38 @@ export async function PUT(
     const { title, description, questions } = body;
 
     // Update quiz
-    const quiz = await prisma.professorQuiz.update({
+    await prisma.professorQuiz.update({
       where: { id: quizId },
       data: {
         ...(title !== undefined && { title: title.trim() }),
         ...(description !== undefined && { description: description?.trim() || null }),
       },
+    });
+
+    // Update questions in place so existing student answers stay attached, then
+    // re-grade any submissions in case the answer key changed.
+    let idMap: Record<string, string> = {};
+    if (questions && Array.isArray(questions)) {
+      idMap = await saveQuizQuestions(quizId, questions);
+      const hasResponses = await prisma.professorQuizResponse.count({ where: { quizId } });
+      if (hasResponses > 0) {
+        await regradeQuiz(quizId);
+      }
+    }
+
+    const updatedQuiz = await prisma.professorQuiz.findUnique({
+      where: { id: quizId },
       include: {
         questions: {
           include: {
-            options: true,
+            options: { orderBy: { order: 'asc' } },
           },
           orderBy: { order: 'asc' },
         },
       },
     });
 
-    // If questions are provided, update them
-    if (questions && Array.isArray(questions)) {
-      // Delete existing questions and options (cascade will handle options)
-      await prisma.professorQuizQuestion.deleteMany({
-        where: { quizId },
-      });
-
-      // Only create questions if array is not empty
-      if (questions.length > 0) {
-        // Create new questions
-        await prisma.professorQuizQuestion.createMany({
-          data: questions.map((q: QuestionInput, index: number) => ({
-            quizId,
-            text: q.text || '',
-            richTextContent: (q.richTextContent || null) as Prisma.InputJsonValue,
-            type: (typeof q.type === 'string' ? q.type.toUpperCase().replace('-', '_') : q.type) as 'MULTIPLE_CHOICE' | 'SHORT_ANSWER' | 'TRUE_FALSE',
-            imageUrl: q.imageUrl || null,
-            order: q.order || index + 1,
-          })),
-        });
-
-        // Get created questions to add options
-        const createdQuestions = await prisma.professorQuizQuestion.findMany({
-          where: { quizId },
-          orderBy: { order: 'asc' },
-        });
-
-        // Create options for each question
-        for (let i = 0; i < questions.length; i++) {
-          const question = questions[i];
-          const createdQuestion = createdQuestions[i];
-          
-          if (question.options && Array.isArray(question.options) && createdQuestion) {
-            await prisma.professorQuizOption.createMany({
-              data: question.options.map((opt: QuestionOptionInput, optIndex: number) => ({
-                questionId: createdQuestion.id,
-                text: opt.text || '',
-                isCorrect: opt.isCorrect || false,
-                order: opt.order || optIndex + 1,
-              })),
-            });
-          }
-        }
-      }
-
-      // Fetch updated quiz
-      const updatedQuiz = await prisma.professorQuiz.findUnique({
-        where: { id: quizId },
-        include: {
-          questions: {
-            include: {
-              options: true,
-            },
-            orderBy: { order: 'asc' },
-          },
-        },
-      });
-
-      return NextResponse.json({ quiz: updatedQuiz });
-    }
-
-    return NextResponse.json({ quiz });
+    return NextResponse.json({ quiz: updatedQuiz, idMap });
   } catch (error) {
     console.error('Error updating quiz:', error instanceof Error ? error.message : String(error));
     const errorMessage = error instanceof Error ? error.message : 'Failed to update quiz';
@@ -188,10 +139,9 @@ export async function DELETE(
   { params }: { params: Promise<{ quizId: string }> }
 ) {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const authResult = await requireUser();
+    if (!authResult.ok) return authResult.response;
+    const { user } = authResult;
 
     const { quizId } = await params;
 
@@ -205,7 +155,7 @@ export async function DELETE(
       return NextResponse.json({ error: 'Quiz not found' }, { status: 404 });
     }
 
-    if (quiz.professorId !== session.user.id) {
+    if (quiz.professorId !== user.id) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 

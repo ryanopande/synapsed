@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@/lib/db/prisma";
+import { requireSurveyProfessor } from "@/lib/auth";
 
 // POST /api/surveys/[id]/publish - Publish a draft survey
 export async function POST(
@@ -17,6 +18,11 @@ export async function POST(
     if (!surveyId) {
       return NextResponse.json({ error: "Survey ID is required" }, { status: 400 });
     }
+
+
+    const authResult = await requireSurveyProfessor(surveyId);
+
+    if (!authResult.ok) return authResult.response;
 
     // Find the survey
     const survey = await prisma.survey.findUnique({

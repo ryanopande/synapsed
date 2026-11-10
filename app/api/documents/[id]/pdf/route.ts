@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { auth } from '@/auth'
-import { prisma } from '@/lib/prisma'
+import { requireUser } from '@/lib/auth';
+import { prisma } from '@/lib/db/prisma'
 
 // GET /api/documents/[id]/pdf - Proxy PDF from R2 to avoid CORS issues
 export async function GET(
@@ -8,10 +8,9 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await auth()
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    const authResult = await requireUser();
+    if (!authResult.ok) return authResult.response;
+    const { user } = authResult;
 
     const { id } = await params
     
@@ -19,7 +18,7 @@ export async function GET(
     const document = await prisma.document.findFirst({
       where: {
         id: id,
-        uploadedBy: session.user.id
+        uploadedBy: user.id
       }
     })
 

@@ -1,8 +1,8 @@
 import { DynamicStructuredTool } from "@langchain/core/tools";
 import * as z from "zod";
-import { GoogleGenAI, Type } from "@google/genai";
-import { prisma } from "@/lib/prisma";
-import { GEMINI_MODEL } from "@/lib/gemini-model";
+import { Type } from "@google/genai";
+import { prisma } from "@/lib/db/prisma";
+import { GEMINI_MODEL, gemini } from "@/lib/ai/gemini";
 
 export const createInChatAssessment = new DynamicStructuredTool({
   name: "createInChatAssessment",
@@ -28,7 +28,6 @@ export const createInChatAssessment = new DynamicStructuredTool({
     };
 
     try {
-      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
 
       // Define function declaration for assessment generation
       const generateAssessmentFunction = {
@@ -242,7 +241,7 @@ Return correctAnswers as an array of objects, one per field:
 
 Return the assessment structure by calling the function \`create_in_chat_assessment\` with the fields and correctAnswers arrays.`;
 
-      const response = await ai.models.generateContent({
+      const response = await gemini.models.generateContent({
         model: GEMINI_MODEL,
         contents: prompt,
         config: {
@@ -426,37 +425,42 @@ Return the assessment structure by calling the function \`create_in_chat_assessm
         }
       });
 
-      // Create assessment result
+      // Save the quiz (with its answer key) so submissions are graded server-side.
+      // Without a saved quiz there is nothing trustworthy to grade against, so fail instead.
+      let savedAssessmentId: string;
+      try {
+        const saved = await prisma.inChatAssessment.create({
+          data: {
+            topic,
+            nodeTitle: nodeTitle || null,
+            fields: formedibleFields,
+            schema: schemaMetadata,
+            correctAnswers: correctAnswersObj,
+            conversationId: conversationId || null,
+            nodeId: lessonId || null,
+          },
+          select: { id: true },
+        });
+        savedAssessmentId = saved.id;
+      } catch (dbError) {
+        console.error("Error saving assessment to database:", dbError);
+        return {
+          content: "Failed to create in-chat assessment: it could not be saved for grading.",
+          inChatAssessmentData: null,
+        };
+      }
+
+      // Sent to the browser: the answer key stays on the server.
       const assessmentResult = {
         type: "inChatAssessment",
+        assessmentId: savedAssessmentId,
         topic,
         nodeTitle,
         difficulty,
         fields: formedibleFields,
         schema: schemaMetadata, // Store simple metadata for form component
         zodSchema: zodSchema, // Also include Zod schema for validation
-        correctAnswers: correctAnswersObj,
       };
-
-      // Save assessment to database if conversationId is provided
-      if (conversationId) {
-        try {
-          await prisma.inChatAssessment.create({
-            data: {
-              topic,
-              nodeTitle: nodeTitle || null,
-              fields: formedibleFields,
-              schema: schemaMetadata,
-              correctAnswers: correctAnswersObj,
-              conversationId: conversationId || null,
-              nodeId: lessonId || null,
-            },
-          });
-        } catch (dbError) {
-          console.error("Error saving assessment to database:", dbError);
-          // Continue even if DB save fails - assessment can still be used
-        }
-      }
 
       return {
         content: `In-chat assessment created for topic: "${topic}". The form has been generated with ${assessmentData.fields.length} questions.`,

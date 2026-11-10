@@ -179,13 +179,16 @@ export function QuizBuilder({
     
     try {
       // Transform questions to API format
+      // Ids let the server update questions in place, so student answers stay attached.
       const questionsForApi = questions.map((q) => ({
+        id: q.id,
         text: q.text,
         richTextContent: q.richTextContent || null, // Ensure BlockNote JSON is included
         type: q.type,
         imageUrl: q.imageUrl,
         order: q.order || 0,
         options: q.options.map((opt) => ({
+          id: opt.id,
           text: opt.text,
           isCorrect: opt.isCorrect,
           order: opt.order || 0,
@@ -234,6 +237,20 @@ export function QuizBuilder({
         throw new Error('Invalid response from server');
       }
       
+      // Swap temporary client ids for the database ids the server assigned
+      const idMap: Record<string, string> = data.idMap || {};
+      if (Object.entries(idMap).some(([from, to]) => from !== to)) {
+        const mapId = (id: string) => idMap[id] ?? id;
+        setQuestions((prev) =>
+          prev.map((q) => ({
+            ...q,
+            id: mapId(q.id),
+            options: q.options.map((opt) => ({ ...opt, id: mapId(opt.id) })),
+          })),
+        );
+        setSelectedQuestionId((prev) => mapId(prev));
+      }
+
       // If this was a new quiz, update the quizId
       if (!currentQuizId && data.quiz?.id) {
         setCurrentQuizId(data.quiz.id);

@@ -6,7 +6,7 @@ import Image from 'next/image';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Question, AnswerOption } from './types';
-import { RichTextEditor } from '@/components/richtext/RichTextEditor';
+import { RichTextEditor } from '@/components/rich-text/RichTextEditor';
 import { X, Plus, Image as ImageIcon, AlertCircle } from 'lucide-react';
 import { RichTextContent } from '@/lib/types/quizzes';
 
@@ -259,21 +259,44 @@ export function QuestionEditor({
         {/* Answer Options */}
         {question.type !== 'short-answer' && (
           <div>
-            <Label className="mb-2 block">
+            <Label className="mb-1 block">
               Answer Options <span className="text-red-500">*</span>
             </Label>
+            <p className="mb-3 text-sm text-slate-500 dark:text-slate-400">
+              Select the correct answer. Students&apos; answers are graded automatically against it.
+            </p>
+            {!question.options.some((option) => option.isCorrect) && (
+              <div className="mb-3 flex items-start p-3 bg-amber-50 dark:bg-amber-900/20 text-amber-800 dark:text-amber-300 rounded border-l-4 border-amber-500">
+                <AlertCircle className="h-5 w-5 mr-2 flex-shrink-0" />
+                <p className="text-sm">No correct answer selected yet. The quiz can&apos;t be published until every question has one.</p>
+              </div>
+            )}
             <div className="space-y-3">
               {question.options.map((option) => (
                 <div
                   key={option.id}
-                  className="flex items-center space-x-3 p-3 border border-slate-200 dark:border-slate-700 rounded-md bg-white dark:bg-slate-800"
+                  className={`flex items-center space-x-3 p-3 border rounded-md ${
+                    option.isCorrect
+                      ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-900/20'
+                      : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800'
+                  }`}
                 >
-                  <input
-                    type="radio"
-                    checked={option.isCorrect}
-                    onChange={() => handleCorrectOptionChange(option.id)}
-                    className="h-4 w-4 text-emerald-600 focus:ring-emerald-500"
-                  />
+                  <label className="flex items-center gap-2 cursor-pointer shrink-0">
+                    <input
+                      type="radio"
+                      name={`correct-${question.id}`}
+                      checked={option.isCorrect}
+                      onChange={() => handleCorrectOptionChange(option.id)}
+                      className="h-4 w-4 text-emerald-600 focus:ring-emerald-500"
+                    />
+                    <span
+                      className={`text-xs font-medium w-14 ${
+                        option.isCorrect ? 'text-emerald-700 dark:text-emerald-300' : 'text-slate-500'
+                      }`}
+                    >
+                      {option.isCorrect ? 'Correct' : 'Mark'}
+                    </span>
+                  </label>
                   <Input
                     type="text"
                     value={option.text}
@@ -315,7 +338,8 @@ export function QuestionEditor({
             <div className="p-4 border border-slate-200 dark:border-slate-700 rounded-md bg-slate-50 dark:bg-slate-800/50">
               <p className="text-sm text-slate-500 dark:text-slate-400">
                 Students will be asked to provide a written response to this
-                question.
+                question. Written answers aren&apos;t auto-graded: you&apos;ll mark them
+                correct or incorrect from the quiz results.
               </p>
               {question.hasError && (
                 <div className="mt-3 flex items-start p-3 bg-red-50 dark:bg-red-900/20 text-red-800 dark:text-red-300 rounded border-l-4 border-red-500">

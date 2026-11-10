@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
-import { callGemini } from '@/lib/flashcard/generate';
+import { prisma } from '@/lib/db/prisma';
+import { callGemini } from '@/lib/flashcards/generate';
+import { requirePathwayNodeAccess } from '@/lib/auth';
 
 interface FlashcardData {
   question: string;
@@ -22,38 +23,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'nodeId is required' }, { status: 400 });
     }
     
-    //console.log('Starting flashcard generation for nodeId:', nodeId);
-    
-    // Check if PathwayNode exists, if not create a temporary one for testing
-    let pathwayNode = await prisma.pathwayNode.findUnique({
-      where: { id: nodeId }
-    });
-    
-    if (!pathwayNode) {
-      // Create a temporary pathway and node for testing
-      const tempPathway = await prisma.learningPathway.create({
-        data: {
-          studentId: '507f1f77bcf86cd799439012', // Use a proper ObjectID
-          classId: '507f1f77bcf86cd799439013',   // Use a proper ObjectID
-          status: 'pending'
-        }
-      });
-      
-      pathwayNode = await prisma.pathwayNode.create({
-        data: {
-          id: nodeId,
-          pathwayId: tempPathway.id,
-          nodeId: nodeId,
-          title: nodeTitle || 'Test Node',
-          description: markdownContent || 'Test content',
-          type: 'topic',
-          difficulty: 'beginner',
-          duration: '30 minutes',
-          dependsOn: []
-        }
-      });
-    }
-    
+    const access = await requirePathwayNodeAccess(nodeId);
+    if (!access.ok) return access.response;
+
     //console.log('About to call Gemini');
     
     // Generate flashcards using Gemini

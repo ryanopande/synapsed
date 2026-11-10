@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import useSWR from 'swr';
-import { generateFlashcards } from '@/lib/flashcard/aiClient';
+import { generateFlashcards } from '@/lib/flashcards/aiClient';
 
 interface Flashcard {
   id: string;

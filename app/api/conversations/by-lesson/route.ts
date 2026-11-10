@@ -1,24 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { ConversationService } from '@/lib/agent/conversation-service';
+import { ConversationService } from '@/lib/agent/conversationService';
+import { requireUser } from '@/lib/auth';
 
 /**
  * GET /api/conversations/by-lesson
- * Retrieves a conversation by userId, classId, and lessonId
- * Query params: userId, classId (optional), lessonId (optional)
+ * Retrieves the signed-in user's conversation for a class and lesson
+ * Query params: classId (optional), lessonId (optional). A userId param is ignored.
  */
 export async function GET(req: NextRequest) {
   try {
+    const authResult = await requireUser();
+    if (!authResult.ok) return authResult.response;
+    const userId = authResult.user.id;
+
     const { searchParams } = new URL(req.url);
-    const userId = searchParams.get('userId');
     const classId = searchParams.get('classId') || undefined;
     const lessonId = searchParams.get('lessonId') || undefined;
-
-    if (!userId) {
-      return NextResponse.json(
-        { error: 'User ID is required' },
-        { status: 400 }
-      );
-    }
 
     const conversation = await ConversationService.getConversationByLesson(
       userId,

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { useSession } from "next-auth/react";
+import { useSession } from "@/lib/auth/client";
 import { useParams, useRouter } from "next/navigation";
 
 export default function ClassEntryPage() {

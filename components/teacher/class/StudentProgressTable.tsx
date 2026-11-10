@@ -19,9 +19,9 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
-import StudentSurveyDialog from "./Dialogs/StudentViewSurveyAnswerDialog"
-import ProfessorPathwayPreviewDialog from "./Dialogs/ProfessorPathwayPreviewDialog"
-import { PathwayData } from "@/lib/types/pathwayTypes"
+import StudentSurveyDialog from "@/components/teacher/class/dialogs/StudentSurveyAnswersDialog"
+import ProfessorPathwayPreviewDialog from "@/components/teacher/class/dialogs/ProfessorPathwayPreviewDialog"
+import { PathwayData } from "@/lib/types/pathway"
 
 type Survey = {
   id: string

@@ -1,19 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
-import { auth } from "@/auth";
+import { prisma } from "@/lib/db/prisma";
+import { getCurrentUser, hasRole } from "@/lib/auth";
 
 // This function handles the POST request for a student to join a class
 export async function POST(req: NextRequest) {
   try {
-    // Attempting to authenticate the user session
-    const session = await auth();
+    const user = await getCurrentUser();
     // Extracting the joinToken from the request body
     const { joinToken } = await req.json();
 
-    // Validating if the user is authenticated and the joinToken is present
-    if (!session || !session.user?.id) {
-      // Returning an error response if the user is not authenticated
+    if (!user) {
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+    }
+    if (!hasRole(user, "STUDENT")) {
+      return NextResponse.json({ message: "Only students can join a class" }, { status: 403 });
     }
 
     if (!joinToken) {
@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Validating if the user has already joined the class
-    if (targetClass.enrollments.some((enrollment) => enrollment.studentId === session.user!.id)) {
+    if (targetClass.enrollments.some((enrollment) => enrollment.studentId === user.id)) {
       // Returning a success response if the user has already joined the class
       return NextResponse.json({ message: "You already joined this class" }, { status: 200 });
     }
@@ -47,7 +47,7 @@ export async function POST(req: NextRequest) {
       data: {
         enrollments: {
           create: {
-            studentId: session.user!.id
+            studentId: user.id
           }
         }
       },

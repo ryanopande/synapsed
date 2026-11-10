@@ -1,16 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { auth } from '@/auth'
-import { prisma } from '@/lib/prisma'
-import { uploadStudentDocumentToR2 } from '@/lib/r2/studentDoctoR2'
+import { requireUser } from '@/lib/auth';
+import { prisma } from '@/lib/db/prisma'
+import { uploadStudentDocumentToR2 } from '@/lib/storage/uploadStudentDocument'
 import { DocumentType } from '@prisma/client'
 
 // GET /api/documents - Get all documents for the current user
 export async function GET(request: NextRequest) {
   try {
-    const session = await auth()
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    const authResult = await requireUser();
+    if (!authResult.ok) return authResult.response;
+    const { user } = authResult;
 
     const { searchParams } = new URL(request.url)
     const folder = searchParams.get('folder')
@@ -21,7 +20,7 @@ export async function GET(request: NextRequest) {
       folder?: string
       classId?: string
     } = {
-      uploadedBy: session.user.id
+      uploadedBy: user.id
     }
 
     if (folder) {
@@ -57,10 +56,9 @@ export async function GET(request: NextRequest) {
 // POST /api/documents - Create a new document
 export async function POST(request: NextRequest) {
   try {
-    const session = await auth()
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    const authResult = await requireUser();
+    if (!authResult.ok) return authResult.response;
+    const { user } = authResult;
 
     const formData = await request.formData()
     const file = formData.get('file') as File
@@ -79,7 +77,7 @@ export async function POST(request: NextRequest) {
       buffer,
       file.name,
       file.type,
-      session.user.id
+      user.id
     )
 
     // Create document in database
@@ -91,7 +89,7 @@ export async function POST(request: NextRequest) {
         size: `${(file.size / (1024 * 1024)).toFixed(1)} MB`,
         folder: folder || 'recent',
         classId: classId || null,
-        uploadedBy: session.user.id,
+        uploadedBy: user.id,
         mimeType: file.type,
         originalName: file.name
       },

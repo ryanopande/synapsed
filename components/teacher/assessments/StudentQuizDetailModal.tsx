@@ -1,6 +1,7 @@
 "use client";
 
-import React from 'react';
+import React, { useState } from 'react';
+import { toast } from 'sonner';
 import {
   Dialog,
   DialogContent,
@@ -9,19 +10,102 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { StudentQuizResponse } from './types';
-import { CheckCircle2, XCircle } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { CheckCircle2, Clock, XCircle } from 'lucide-react';
 
 interface StudentQuizDetailModalProps {
   studentResponse: StudentQuizResponse;
+  quizId: string;
   quizTitle: string;
   onClose: () => void;
+  /** Called with the updated submission after the professor changes a grade. */
+  onGraded?: (response: StudentQuizResponse) => void;
+}
+
+interface GradeResult {
+  score: number | null;
+  scoreOverridden: boolean;
+  gradedAt: string | null;
+  pendingCount: number;
+  answers: { id: string; isCorrect: boolean | null }[];
 }
 
 export function StudentQuizDetailModal({
-  studentResponse,
+  studentResponse: initialResponse,
+  quizId,
   quizTitle,
   onClose,
+  onGraded,
 }: StudentQuizDetailModalProps) {
+  const [studentResponse, setStudentResponse] = useState(initialResponse);
+  const [savingAnswerId, setSavingAnswerId] = useState<string | null>(null);
+  const [scoreInput, setScoreInput] = useState('');
+  const [savingScore, setSavingScore] = useState(false);
+  const pendingCount = studentResponse.answers.filter((a) => a.isCorrect === null).length;
+
+  const saveGrade = async (payload: { answers?: { answerId: string; isCorrect: boolean | null }[]; score?: number | null }) => {
+    const res = await fetch(`/api/professor/quiz/${quizId}/responses/${studentResponse.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || 'Failed to save grade');
+    const result = data as GradeResult;
+    const grades = new Map(result.answers.map((a) => [a.id, a.isCorrect]));
+    const updated: StudentQuizResponse = {
+      ...studentResponse,
+      score: result.score,
+      scoreOverridden: result.scoreOverridden,
+      gradedAt: result.gradedAt,
+      answers: studentResponse.answers.map((a) => (grades.has(a.id) ? { ...a, isCorrect: grades.get(a.id) ?? null } : a)),
+    };
+    setStudentResponse(updated);
+    onGraded?.(updated);
+    return updated;
+  };
+
+  const handleMarkAnswer = async (answerId: string, isCorrect: boolean) => {
+    setSavingAnswerId(answerId);
+    try {
+      await saveGrade({ answers: [{ answerId, isCorrect }] });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to save grade');
+    } finally {
+      setSavingAnswerId(null);
+    }
+  };
+
+  const handleSetScore = async () => {
+    const value = Number(scoreInput);
+    if (scoreInput.trim() === '' || !Number.isFinite(value) || value < 0 || value > 100) {
+      toast.error('Enter a score from 0 to 100');
+      return;
+    }
+    setSavingScore(true);
+    try {
+      await saveGrade({ score: value });
+      setScoreInput('');
+      toast.success('Score updated');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to update score');
+    } finally {
+      setSavingScore(false);
+    }
+  };
+
+  const handleResetScore = async () => {
+    setSavingScore(true);
+    try {
+      await saveGrade({ score: null });
+      toast.success('Score recalculated from graded answers');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to reset score');
+    } finally {
+      setSavingScore(false);
+    }
+  };
+
   const formatDate = (date: Date | string) => {
     const d = typeof date === 'string' ? new Date(date) : date;
     return new Intl.DateTimeFormat('en-US', {
@@ -54,7 +138,8 @@ export function StudentQuizDetailModal({
       // Short answer
       return {
         studentAnswer: answer.answerText || 'No answer provided',
-        correctAnswer: 'Manual grading required',
+        correctAnswer:
+          answer.isCorrect === null ? 'Needs grading' : answer.isCorrect ? 'Graded correct' : 'Graded incorrect',
         isCorrect: answer.isCorrect,
       };
     }
@@ -82,9 +167,48 @@ export function StudentQuizDetailModal({
                 <span>•</span>
                 <span className="font-semibold">
                   Score: {studentResponse.score.toFixed(1)}%
+                  {studentResponse.scoreOverridden && ' (set manually)'}
                 </span>
               </>
             )}
+          </div>
+          <div className="mt-3 flex flex-wrap items-center gap-3 rounded-lg border border-slate-200 dark:border-slate-700 p-3">
+            {pendingCount > 0 ? (
+              <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-800">
+                <Clock className="h-3 w-3" />
+                {pendingCount} answer{pendingCount === 1 ? '' : 's'} to grade
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-semibold text-emerald-800">
+                <CheckCircle2 className="h-3 w-3" />
+                All answers graded
+              </span>
+            )}
+            <div className="flex items-center gap-2 ml-auto">
+              <label htmlFor="score-override" className="text-sm text-slate-600 dark:text-slate-400">
+                Set score
+              </label>
+              <Input
+                id="score-override"
+                type="number"
+                min={0}
+                max={100}
+                step={0.5}
+                value={scoreInput}
+                onChange={(e) => setScoreInput(e.target.value)}
+                placeholder={studentResponse.score !== null ? studentResponse.score.toFixed(1) : '0-100'}
+                className="w-24 h-8"
+              />
+              <span className="text-sm text-slate-500">%</span>
+              <Button size="sm" onClick={handleSetScore} disabled={savingScore}>
+                Save
+              </Button>
+              {studentResponse.scoreOverridden && (
+                <Button size="sm" variant="outline" onClick={handleResetScore} disabled={savingScore}>
+                  Use calculated score
+                </Button>
+              )}
+            </div>
           </div>
         </DialogHeader>
 
@@ -202,10 +326,10 @@ export function StudentQuizDetailModal({
                     </div>
                   )}
 
-                  {/* Answer summary */}
+                  {/* Answer summary and grading */}
                   <div className="mt-4 pt-4 border-t border-slate-200 dark:border-slate-700">
-                    <div className="flex items-center gap-4 text-sm">
-                      <div>
+                    <div className="flex flex-wrap items-center gap-4 text-sm">
+                      <div className="flex-1 min-w-0">
                         <span className="text-slate-600 dark:text-slate-400">
                           Student answered:{' '}
                         </span>
@@ -213,17 +337,31 @@ export function StudentQuizDetailModal({
                           {answerDisplay.studentAnswer}
                         </span>
                       </div>
-                      {answer.isCorrect !== null && (
-                        <div
-                          className={`px-2 py-1 rounded text-xs font-medium ${
-                            answer.isCorrect
-                              ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300'
-                              : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300'
-                          }`}
+                      <div className="flex items-center gap-2">
+                        {answer.isCorrect === null && (
+                          <span className="text-xs font-medium text-amber-700">Needs grading</span>
+                        )}
+                        <Button
+                          size="sm"
+                          variant={answer.isCorrect === true ? 'default' : 'outline'}
+                          className={answer.isCorrect === true ? 'bg-emerald-600 hover:bg-emerald-700 text-white' : ''}
+                          disabled={savingAnswerId === answer.id}
+                          onClick={() => handleMarkAnswer(answer.id, true)}
                         >
-                          {answer.isCorrect ? 'Correct' : 'Incorrect'}
-                        </div>
-                      )}
+                          <CheckCircle2 className="h-4 w-4 mr-1" />
+                          Correct
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant={answer.isCorrect === false ? 'default' : 'outline'}
+                          className={answer.isCorrect === false ? 'bg-red-600 hover:bg-red-700 text-white' : ''}
+                          disabled={savingAnswerId === answer.id}
+                          onClick={() => handleMarkAnswer(answer.id, false)}
+                        >
+                          <XCircle className="h-4 w-4 mr-1" />
+                          Incorrect
+                        </Button>
+                      </div>
                     </div>
                   </div>
                 </div>

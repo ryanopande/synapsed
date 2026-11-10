@@ -1,6 +1,6 @@
 import { DynamicStructuredTool } from "@langchain/core/tools";
 import * as z from "zod";
-import { queryPinecone } from "@/lib/pinecone/queryPinecone";
+import { queryPinecone } from "@/lib/rag/queryPinecone";
 
 export const searchClassContent = new DynamicStructuredTool({
   name: "searchClassContent",

@@ -22,6 +22,8 @@ export type Student = {
   score?: number | null;
   status: 'submitted' | 'in-progress' | 'not-started';
   responseId?: string | null;
+  /** Answers still waiting for the professor to grade. */
+  needsGrading?: number;
 };
 
 export type StudentQuizAnswer = {
@@ -39,6 +41,8 @@ export type StudentQuizResponse = {
   studentName: string;
   studentEmail: string;
   score: number | null;
+  scoreOverridden?: boolean;
+  gradedAt?: Date | string | null;
   submittedAt: Date | string;
   answers: StudentQuizAnswer[];
 };

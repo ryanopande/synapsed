@@ -1,67 +1,74 @@
 # `lib/` — Domain logic
 
-Server-side (and shared) business logic for SynapsEd. Route handlers in `app/api` and some Server Components should call into here rather than reimplementing pipelines.
+Server-side (and shared) business logic for SynapsEd. API routes in `app/api` and Server Components call into here instead of reimplementing pipelines. Each folder is one domain.
 
 Hub: [`../README.md`](../README.md) · Architecture: [`../docs/ARCHITECTURE.md`](../docs/ARCHITECTURE.md).
 
 ---
 
-## Quick index
+## Folder map
 
-| Path | Purpose | Start here |
+| Folder | Purpose | Key files |
 |---|---|---|
-| `prisma.ts` | Singleton Prisma client | All DB access |
-| `authOptions.ts` | NextAuth config (Google + JWT + roles) | Auth changes |
-| `gemini-model.ts` | `GEMINI_MODEL` vs `GEMINI_AGENT_MODEL` split | Any Gemini usage |
-| `utils.ts` | `cn()` Tailwind helper | UI classnames |
-| `vectorization.ts` | Material → OCR → chunk → Pinecone | Upload pipeline |
-| [`agent/`](./agent/README.md) | Multimodal tutor (LangGraph) | AI tutor work |
-| `agent/tools/` | Tool implementations for the agent | RAG search, visuals, assessments |
-| `pinecone/` | Embed + query vector store | Retrieval |
-| `rag/` | Mistral OCR + vectorize variants | Materials / RAG APIs |
-| `ocr/` | OCR from URL helpers | Vectorization |
-| `chunking/` | Page-aware markdown chunking | RAG quality |
-| `r2/` | Cloudflare R2 uploads | Files, quiz images, student docs |
-| `syllabus/` | Extract / structure syllabus | Syllabus APIs |
-| `survey/` | Survey context helpers for AI generation | Survey generate |
-| `learning-paths/` | Pathway prompt builder (imports study JSON) | Pathway generation |
-| `flashcard/` | Flashcard generation | Flashcard APIs |
-| `Editor/` | BlockNote AI assist | `/api/editorAi` |
-| `content/` | Annotations / content references services | Lesson content UI |
-| `context/` | `LessonNoteProvider` React context | Lesson notes |
-| `formedible/` | Dynamic form types/utils for in-chat assessments | Assessments |
-| `types/` | Shared TypeScript types | Cross-cutting types |
-| `utils/` | Extra util modules (if present) | Misc |
+| [`auth/`](#auth--the-authentication-parent) | **All authentication and authorization** | `index.ts` (server), `client.ts` (React), `routes.ts` (middleware) |
+| `db/` | Prisma client singleton | `prisma.ts` |
+| `ai/` | One shared client per AI provider | `gemini.ts` (client + model names), `mistral.ts` (client + OCR) |
+| `storage/` | Cloudflare R2 uploads | `r2.ts` (client), `uploadToR2.ts`, `uploadQuizImage.ts`, `uploadStudentDocument.ts` |
+| `rag/` | Material → chunks → Pinecone, and retrieval | `pinecone.ts` (client), `vectorizeMaterial.ts`, `chunkMarkdown.ts`, `embedAndStore.ts`, `queryPinecone.ts` |
+| [`agent/`](./agent/README.md) | Multimodal AI tutor (LangGraph) | `tutorAgent.ts`, `prompts.ts`, `conversationService.ts`, `voiceTurnStore.ts`, `tools/` |
+| `course/` | Per-class topic map and per-topic mastery scoring | `topicMap.ts`, `mastery.ts`, `types.ts` |
+| `pathways/` | Personalized pathway generation and lesson unlocking | `generatePathway.ts`, `progress.ts`, `locks.ts` |
+| `surveys/` | Diagnostic survey generation | `diagnostic.ts`, `syllabusService.ts` |
+| `syllabus/` | Syllabus OCR → structured content, with caching | `processSyllabus.ts`, `extractSyllabus.ts`, `cache.ts` |
+| `quizzes/` | Professor quiz grading | `grading.ts` |
+| `flashcards/` | Flashcard generation (Gemini, with fallback deck) | `generate.ts`, `aiClient.ts` (browser) |
+| `students/` | Student achievements and professor feedback | `achievements.ts`, `feedback.ts` |
+| `analytics/` | Class analytics for professors | `classAnalytics.ts` |
+| `documents/` | PDF annotations and content references | `databaseContentService.ts` (browser), `annotationUtils.ts` |
+| `editor/` | BlockNote editor AI assist | `models.ts` (server), `aiClient.ts` (browser) |
+| `forms/` | Formedible dynamic-form helpers (in-chat assessments) | `types.ts`, `templateInterpolation.ts` |
+| `types/` | Shared TypeScript types | `assessments.ts`, `quizzes.ts`, `pathway.ts`, … |
+| `utils.ts` | `cn()` Tailwind class helper (used by shadcn `components/ui`) | |
+
+Files marked *(browser)* are thin `fetch` wrappers called from client components; everything else runs on the server.
 
 ---
 
-## Critical modules
+## `auth/` — the authentication parent
 
-### `agent/` (canonical)
+Every auth concern goes through this folder; nothing else imports `next-auth` directly.
 
-Authoritative tutor. Do not invent a second “brain” for voice or visuals.
+| File | Purpose | Import from |
+|---|---|---|
+| `index.ts` | Entry point: re-exports everything below | `@/lib/auth` (server) |
+| `config.ts` | NextAuth config: Google provider, Prisma adapter, JWT callbacks | — |
+| `nextauth.ts` | The NextAuth instance: `auth`, `handlers`, `signIn`, `signOut` | via `index.ts` |
+| `session.ts` | `getCurrentUser`, `requireUser`, `requireRole`, `hasRole`, `isAdmin` | via `index.ts` |
+| `guards.ts` | Ownership checks: `requireClassProfessor`, `requireClassMember`, `requireEnrolledStudent`, `requireStudentOrClassProfessor`, `requireSurveyProfessor`, `requirePathwayNodeAccess` | via `index.ts` |
+| `service-key.ts` | `isStudyServiceRequest` — `STUDY_API_KEY` access for the `study/` pipeline | via `index.ts` |
+| `routes.ts` | Page paths, `HOME_BY_ROLE`, role-based page rules (edge-safe) | `@/lib/auth/routes` (middleware) |
+| `client.ts` | `useSession`, `useCurrentUser`, `signInWithGoogle`, `signOutToSignIn`, `SessionProvider` | `@/lib/auth/client` (client components) |
+| `types.ts` | Adds `id` and `role` to NextAuth's `Session`/`JWT` types | — |
 
-- `simple-agent.ts` — LangGraph + tools
-- `prompts.ts` — system / visual / audio prompts
-- `conversation-service.ts` — Prisma message persistence
-- `voice-turn-store.ts` — in-memory idempotency for voice turns
-- `tools/` — `searchClassContent`, `createInChatAssessment`, `createVisualLesson`, stubs for progress/resources
+Every `require*` helper returns `{ ok: true, user, ... }` or `{ ok: false, response }`, so an API route looks like:
 
-Docs: [`agent/README.md`](./agent/README.md), [`../AGENT_QUICKSTART.md`](../AGENT_QUICKSTART.md).
+```ts
+import { requireClassProfessor } from "@/lib/auth";
 
-### `learning-paths/`
-
-`pathwayPrompt.ts` builds prompts and function declarations from:
-
-```text
-study/data/prompts/pathway_generation_spec.json
+export async function GET(req: NextRequest, { params }: Params) {
+  const { classId } = await params;
+  const authResult = await requireClassProfessor(classId);
+  if (!authResult.ok) return authResult.response; // 401 / 403 / 404
+  const { user, cls } = authResult;
+  // ...
+}
 ```
 
-Changing pathway personalization rules usually means updating that JSON **and** verifying the study evaluation still makes sense ([`../study/README.md`](../study/README.md)).
+Rules:
 
-### `gemini-model.ts`
-
-Never point the LangGraph agent at a Gemini 3 model without fixing thought-signature / tool-history serialization. Defaults and rationale are documented in the file header.
+- Use the signed-in user (`authResult.user.id`), never a user/student/professor ID sent by the client.
+- ADMIN passes every role and ownership check.
+- Routes called by the `study/` pipeline accept `isStudyServiceRequest(req)` as an alternative to a session.
 
 ---
 
@@ -70,37 +77,41 @@ Never point the LangGraph agent at a Gemini 3 model without fixing thought-signa
 **Material upload → RAG**
 
 ```text
-API upload → lib/r2 → OCR (lib/ocr|rag) → lib/chunking → lib/pinecone → Prisma ClassMaterial
+POST /api/classMaterial/upload → storage/uploadToR2 → rag/vectorizeMaterial
+  → ai/mistral (OCR) → rag/chunkMarkdown → rag/embedAndStore (Pinecone) → Prisma ClassMaterial
 ```
 
-**Student asks tutor a question**
+**Student asks the tutor a question**
 
 ```text
-/api/agent-chat → ConversationService → invokeAgent(simple-agent)
-  → tools (Pinecone search, assessment, visual lesson)
-  → persist assistant message (+ optional diagramData)
+POST /api/agent-chat → agent/conversationService → agent/tutorAgent (invokeAgent)
+  → tools (Pinecone search, in-chat assessment, visual lesson) → persist messages
 ```
 
 **Pathway generation**
 
 ```text
-/api/pathway/generate → learning-paths/pathwayPrompt (+ survey + syllabus context) → Gemini → LearningPathway + PathwayNode
+POST /api/learning-paths/generate → pathways/generatePathway
+  (course/topicMap + course/mastery from survey answers) → Gemini → LearningPathway + PathwayNode
 ```
 
 ---
 
 ## Conventions
 
-- Import as `@/lib/...`.
-- Keep secrets and provider SDKs here (or in API wrappers), never in client components.
-- Prefer small focused modules over mega-files when adding new domains.
-- Update this README when adding a new top-level `lib/<domain>/`.
+- Import as `@/lib/<domain>/<file>`; file names are camelCase.
+- Create provider clients only in `ai/`, `storage/r2.ts`, `rag/pinecone.ts` — import the shared instance elsewhere.
+- Server code never calls this app's own API over HTTP; call the `lib` function directly.
+- Keep secrets and provider SDKs out of client components.
+- Never point the LangGraph agent at a Gemini model without checking the thought-signature notes in `ai/gemini.ts`.
+- Add a row to the folder map when adding a new domain folder.
 
 ---
 
-## Related feature docs
+## Related docs
 
-- Surveys: [`../SURVEY_SYSTEM_README.md`](../SURVEY_SYSTEM_README.md)
-- In-chat assessments: [`../inChatAssessment.md`](../inChatAssessment.md)
-- Memory risks: [`../MEMORY_MANAGEMENT_DRAWBACKS.md`](../MEMORY_MANAGEMENT_DRAWBACKS.md)
+- Agent: [`agent/README.md`](./agent/README.md), [`../docs/features/agent-quickstart.md`](../docs/features/agent-quickstart.md)
+- Surveys: [`../docs/features/survey-system.md`](../docs/features/survey-system.md)
+- In-chat assessments: [`../docs/features/in-chat-assessment.md`](../docs/features/in-chat-assessment.md)
+- Memory risks: [`../docs/features/agent-memory-management.md`](../docs/features/agent-memory-management.md)
 - Schema: [`../prisma/README.md`](../prisma/README.md)

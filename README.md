@@ -30,16 +30,16 @@ SynapsEd (repo folder: `synapsed`) is a **Next.js App Router** application backe
 
 | Capability | Where it lives |
 |---|---|
-| Google OAuth + role selection (Student / Professor) | `auth.ts`, `lib/authOptions.ts`, `/sign-in`, `/choose-role` |
-| Class management, join tokens, materials | `app/teacher/*`, `app/api/class*`, `lib/r2` |
-| Syllabus OCR → structure → RAG | `lib/rag`, `lib/ocr`, `lib/chunking`, `lib/pinecone`, `lib/syllabus` |
-| Multi-survey + AI survey generation | `app/api/surveys/*`, `SURVEY_SYSTEM_README.md` |
-| Personalized learning pathways (React Flow) | `lib/learning-paths`, `app/api/pathway/*`, `components/Synapses` |
-| AI tutor (text / visual / voice, shared memory) | `lib/agent/*`, `AGENT_QUICKSTART.md` |
+| Google OAuth, roles, and all access control | [`lib/auth/`](./lib/README.md#auth--the-authentication-parent), `middleware.ts`, `/sign-in`, `/choose-role` |
+| Class management, join tokens, materials | `app/teacher/*`, `app/api/class*`, `lib/storage` |
+| Syllabus OCR → structure → RAG | `lib/storage`, `lib/ai/mistral.ts`, `lib/rag`, `lib/syllabus` |
+| Multi-survey + AI survey generation | `app/api/surveys/*`, `docs/features/survey-system.md` |
+| Personalized learning pathways (React Flow) | `lib/pathways`, `app/api/pathway/*`, `components/pathway` |
+| AI tutor (text / visual / voice, shared memory) | `lib/agent/*`, `docs/features/agent-quickstart.md` |
 | Professor quizzes + student taking | `app/teacher/assessments`, `app/api/professor/*`, `app/api/student/*` |
 | Phase 0 research pipeline (Python, offline eval) | [`study/`](./study/README.md) |
 
-There is also a **Phase 0 study pipeline** under `study/` that validates pathway personalization with synthetic profiles and research-grade metrics. The TypeScript pathway prompt imports the same JSON spec used by that study.
+There is also a **Phase 0 study pipeline** under `study/` that validates pathway personalization with synthetic profiles and research-grade metrics. It keeps its own prompt spec and is independent of the app's pathway generator.
 
 ---
 
@@ -50,7 +50,7 @@ There is also a **Phase 0 study pipeline** under `study/` that validates pathway
 | Framework | Next.js 15 (App Router), React 19, TypeScript |
 | Auth | NextAuth v5 (JWT) + Google OAuth + Prisma adapter |
 | Database | MongoDB via Prisma 6 |
-| AI orchestration | LangGraph + LangChain + Gemini (`simple-agent`) |
+| AI orchestration | LangGraph + LangChain + Gemini (`tutorAgent`) |
 | Voice transport | OpenAI Realtime (WebRTC SDP via `/api/session`) |
 | Visuals | Anthropic + Excalidraw MCP → Excalidraw canvas |
 | RAG | Mistral OCR → page-aware chunking → Pinecone embeddings |
@@ -170,10 +170,10 @@ Source of truth for keys: [`.env.example`](./.env.example). Study-specific keys:
 
 ### Gemini model split (important)
 
-- **`GEMINI_AGENT_MODEL`** (default `gemini-2.5-flash`) — **only** LangGraph agent (`lib/agent/simple-agent.ts`) because LangChain tool loops omit Gemini 3 `thoughtSignature`.
+- **`GEMINI_AGENT_MODEL`** (default `gemini-2.5-flash`) — **only** LangGraph agent (`lib/agent/tutorAgent.ts`) because LangChain tool loops omit Gemini 3 `thoughtSignature`.
 - **`GEMINI_MODEL`** (default `gemini-3-flash-preview`) — one-shot generation (pathways, surveys, flashcards, assessments, etc.).
 
-Details: [`lib/gemini-model.ts`](./lib/gemini-model.ts), [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md).
+Details: [`lib/ai/gemini.ts`](lib/ai/gemini.ts), [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md).
 
 ---
 
@@ -205,19 +205,18 @@ Class entry (`/class/[classId]`) routes students to **survey** if not submitted,
 | [`prisma/`](./prisma/README.md) | MongoDB schema + seed | Yes |
 | [`hooks/`](./hooks/README.md) | Shared React hooks | Yes |
 | [`scripts/`](./scripts/README.md) | One-off TS maintenance / manual tests | Yes |
-| [`diagrams/`](./diagrams/README.md) | Mermaid sequence docs (voice + visual) | Yes |
 | [`public/`](./public/README.md) | Static assets (logos) | Yes |
 | [`study/`](./study/README.md) | Phase 0 Python research / evaluation pipeline | Yes |
-| [`docs/`](./docs/ARCHITECTURE.md) | Cross-cutting architecture & decisions | Architecture doc |
-| Root `*.md` | Feature deep-dives and PRDs | See [Documentation index](#documentation-index) |
+| [`docs/`](./docs/README.md) | Architecture, feature deep-dives, PRDs | Yes |
 
 Root config files you will touch often:
 
 | File | Role |
 |---|---|
 | `package.json` | Scripts + dependencies |
-| `auth.ts` | NextAuth export (`handlers`, `auth`, `signIn`, `signOut`) |
-| `middleware.ts` | Role gates for `/teacher` and `/student` (see caveats below) |
+| `lib/auth/` | Authentication parent: NextAuth config, session/role/ownership guards, page rules |
+| `middleware.ts` | Page gates for `/teacher`, `/student`, `/class`, `/admin` (rules in `lib/auth/routes.ts`) |
+| `.env.example` | Every environment variable the app reads |
 | `next.config.ts` | Next config |
 | `tailwind.config.ts` | Design tokens / ambient backgrounds |
 | `tsconfig.json` | Path alias `@/*` → project root |
@@ -247,21 +246,21 @@ Use this decision tree every time:
 
 ### “I need to change the AI tutor”
 
-1. [`AGENT_QUICKSTART.md`](./AGENT_QUICKSTART.md) (ops mental model)
+1. [`docs/features/agent-quickstart.md`](docs/features/agent-quickstart.md) (ops mental model)
 2. [`lib/agent/README.md`](./lib/agent/README.md) (architecture)
-3. Edit points: `lib/agent/simple-agent.ts`, `lib/agent/prompts.ts`, `lib/agent/tools/*`
-4. Sequence diagrams: [`diagrams/`](./diagrams/README.md)
+3. Edit points: `lib/agent/tutorAgent.ts`, `lib/agent/prompts.ts`, `lib/agent/tools/*`
+4. Sequence diagrams: [`docs/features/voice-mode.md`](docs/features/voice-mode.md), [`docs/features/visual-lesson-diagrams.md`](docs/features/visual-lesson-diagrams.md)
 
 ### “I need surveys / pathways”
 
-1. [`SURVEY_SYSTEM_README.md`](./SURVEY_SYSTEM_README.md)
-2. [`lib/learning-paths/`](./lib/README.md) + `study/data/prompts/pathway_generation_spec.json`
-3. UI: `components/teacher/class/*`, `components/Synapses/Pathway/*`
+1. [`docs/features/survey-system.md`](docs/features/survey-system.md)
+2. [`lib/pathways/`](./lib/README.md) + `study/data/prompts/pathway_generation_spec.json`
+3. UI: `components/teacher/class/*`, `components/pathway/*`
 
 ### “I need in-chat assessments”
 
-1. [`inChatAssessment.md`](./inChatAssessment.md)
-2. `lib/formedible/`, `components/formedible/`, `components/Lesson/AiLesson/InChatAssessmentForm.tsx`
+1. [`docs/features/in-chat-assessment.md`](docs/features/in-chat-assessment.md)
+2. `lib/forms/`, `components/forms/`, `components/lesson/tutor/InChatAssessmentForm.tsx`
 
 ### “I need the data model”
 
@@ -286,13 +285,13 @@ Use this decision tree every time:
 
 Full write-up: [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md). Short list:
 
-1. **Single tutor brain** — text, visual, and voice all reason through `lib/agent/simple-agent.ts` with one `threadId`.
+1. **Single tutor brain** — text, visual, and voice all reason through `lib/agent/tutorAgent.ts` with one `threadId`.
 2. **Voice Option 2** — OpenAI Realtime is transport only; authoritative turns go through `/api/voice-turn` → `invokeAgent`.
-3. **Dual memory stores** — LangGraph MongoDB checkpointer + Prisma `Conversation`/`Message` (see `MEMORY_MANAGEMENT_DRAWBACKS.md`).
+3. **Dual memory stores** — LangGraph MongoDB checkpointer + Prisma `Conversation`/`Message` (see `docs/features/agent-memory-management.md`).
 4. **Gemini model split** — agent model vs one-shot model (thought signatures / LangChain limitation).
-5. **Pathway prompt shared with study** — `lib/learning-paths/pathwayPrompt.ts` imports `study/data/prompts/pathway_generation_spec.json`.
+5. **Pathway generation is course-agnostic** — `lib/pathways/generatePathway.ts` plans against the class topic map and the student's survey mastery; `study/` keeps its own prompt spec.
 6. **RAG pipeline** — upload to R2 → Mistral OCR → chunk by page → Pinecone → mark material vectorized.
-7. **Middleware matcher is narrow** — only `/admin`, `/teacher`, `/student` are matched; `/class/*` and `/api/*` are not middleware-gated by that matcher (APIs must enforce auth themselves).
+7. **One authentication parent** — `lib/auth` owns all auth. Middleware gates pages by role; every API route checks access itself with `lib/auth` helpers and uses the session user, never a client-supplied ID.
 8. **URL vs enum naming** — DB role is `PROFESSOR`; UI routes use `/teacher`.
 
 ---
@@ -304,7 +303,8 @@ Full write-up: [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md). Short list:
 | Prisma `Role` | `STUDENT` \| `PROFESSOR` \| `ADMIN` |
 | Professor UI prefix | `/teacher/...` (not `/professor`) |
 | First login | `role` often `null` → `/choose-role` → `/api/set-role` → sign out → sign in (JWT refresh) |
-| Middleware | Protects `/teacher` and `/student`; `/admin` paths are referenced but no `app/admin` tree exists today |
+| Middleware | Protects `/teacher`, `/student`, `/class`; `/admin` rules exist but no `app/admin` tree exists today |
+| ADMIN | Passes every check; assigned directly in the database, never through `/choose-role` |
 
 ---
 
@@ -317,7 +317,7 @@ Full write-up: [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md). Short list:
 | `npm run start` | Serve production build |
 | `npm run lint` | ESLint |
 
-There is **no** npm test suite wired in `package.json`. Ad-hoc checks: `test-simple-agent.js`, `scripts/test-rag.ts`.
+There is **no** npm test suite wired in `package.json`. Ad-hoc check: `scripts/test-rag.ts`.
 
 ---
 
@@ -329,27 +329,27 @@ There is **no** npm test suite wired in `package.json`. Ad-hoc checks: `test-sim
 |---|---|
 | **This README** | Orientation, run, navigation |
 | [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md) | Cross-cutting decisions |
-| [`AGENT_QUICKSTART.md`](./AGENT_QUICKSTART.md) | Edit the multimodal agent quickly |
+| [`docs/features/agent-quickstart.md`](docs/features/agent-quickstart.md) | Edit the multimodal agent quickly |
 | [`lib/agent/README.md`](./lib/agent/README.md) | Agent architecture (canonical) |
 
 ### Feature deep-dives (implemented)
 
 | Doc | Use when |
 |---|---|
-| [`SURVEY_SYSTEM_README.md`](./SURVEY_SYSTEM_README.md) | Surveys + pathway management |
-| [`inChatAssessment.md`](./inChatAssessment.md) | Formedible in-chat assessments |
-| [`IMPLEMENTATION_SUMMARY.md`](./IMPLEMENTATION_SUMMARY.md) | Survey/pathway delivery checklist |
-| [`MEMORY_MANAGEMENT_DRAWBACKS.md`](./MEMORY_MANAGEMENT_DRAWBACKS.md) | Dual persistence risks |
-| [`diagrams/diagram-feature.md`](./diagrams/diagram-feature.md) | Visual lesson sequence |
-| [`diagrams/voice-feature.md`](./diagrams/voice-feature.md) | Voice WebRTC → voice-turn sequence |
+| [`docs/features/survey-system.md`](docs/features/survey-system.md) | Surveys + pathway management |
+| [`docs/features/in-chat-assessment.md`](docs/features/in-chat-assessment.md) | Formedible in-chat assessments |
+| [`docs/product/implementation-summary.md`](docs/product/implementation-summary.md) | Survey/pathway delivery checklist |
+| [`docs/features/agent-memory-management.md`](docs/features/agent-memory-management.md) | Dual persistence risks |
+| [`docs/features/visual-lesson-diagrams.md`](docs/features/visual-lesson-diagrams.md) | Visual lesson sequence |
+| [`docs/features/voice-mode.md`](docs/features/voice-mode.md) | Voice WebRTC → voice-turn sequence |
 | [`study/README.md`](./study/README.md) | Phase 0 research pipeline |
 
 ### Product / PRD (partially aspirational)
 
 | Doc | Status |
 |---|---|
-| [`PROFESSOR_ANALYTICS_FEATURES.md`](./PROFESSOR_ANALYTICS_FEATURES.md) | Proposed analytics — much of this is **not** shipped (analytics tab commented out) |
-| [`PROFESSOR_ASSESSMENT_DASHBOARD_PRD.md`](./PROFESSOR_ASSESSMENT_DASHBOARD_PRD.md) | PRD for professor in-chat assessment dashboard |
+| [`docs/features/professor-analytics.md`](docs/features/professor-analytics.md) | Proposed analytics — much of this is **not** shipped (analytics tab commented out) |
+| [`docs/product/professor-assessment-dashboard-prd.md`](docs/product/professor-assessment-dashboard-prd.md) | PRD for professor in-chat assessment dashboard |
 
 Treat PRD/analytics docs as **intent**, not as a guarantee of current UI.
 
@@ -358,10 +358,10 @@ Treat PRD/analytics docs as **intent**, not as a guarantee of current UI.
 ## Known gaps / aspirational docs
 
 - Agent tools `getStudentProgress` / `getClassResources` are stubs (hardcoded strings), not live DB queries.
-- Voice turn dedupe cache is **in-memory** (`lib/agent/voice-turn-store.ts`) — not multi-instance safe.
-- `/class/*` is not in the middleware `matcher`; rely on page/API auth checks.
+- Voice turn dedupe cache is **in-memory** (`lib/agent/voiceTurnStore.ts`) — not multi-instance safe.
 - No formal automated test suite in npm scripts.
 - Landing page only mounts navbar + hero; other landing sections exist but are commented out.
+- The lesson Flashcards tab is built but commented out in the lesson page.
 
 ---
 

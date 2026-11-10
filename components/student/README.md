@@ -1,16 +1,15 @@
 # `components/student/` — Student UI
 
-Student-facing components for dashboard, join/survey flows, and quiz results.
+Student-facing components for the dashboard and quizzes.
 
 Parent: [`../README.md`](../README.md) · Routes: `/student/*`, parts of `/class/*`.
 
 ---
 
-## What to expect here
+| Path | Purpose |
+|---|---|
+| `StudentSidebar.tsx` | Navigation shell for student pages |
+| `dashboard/` | `StudentDashboard`, `CourseCard`, `ClassTabs` |
+| `quizzes/` | `QuizList`, `QuizCard`, `QuizView`, `QuizNotifications`, `QuizResultsView` (barrel: `index.ts`) |
 
-- Dashboard / course cards
-- Survey completion screens
-- Class navigation tabs
-- Quiz results presentation
-
-Lesson multimodal UI lives under [`../Lesson/`](../Lesson/README.md). Pathway graph under [`../Synapses/`](../Synapses/README.md). Shared quiz widgets under `../assessments/`.
+Lesson UI lives under [`../lesson/`](../lesson/README.md). Pathway graph under [`../pathway/`](../pathway/README.md).

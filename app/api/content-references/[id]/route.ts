@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { auth } from "@/auth";
-import { prisma } from '@/lib/prisma'
+import { requireUser } from "@/lib/auth";
+import { prisma } from '@/lib/db/prisma'
 
 // GET /api/content-references/[id] - Get a specific content reference
 export async function GET(
@@ -8,17 +8,16 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await auth()
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    const authResult = await requireUser();
+    if (!authResult.ok) return authResult.response;
+    const { user } = authResult;
 
     const { id } = await params
     const contentReference = await prisma.contentReference.findFirst({
       where: {
         id: id,
         document: {
-          uploadedBy: session.user.id
+          uploadedBy: user.id
         }
       },
       include: {
@@ -48,10 +47,9 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await auth()
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    const authResult = await requireUser();
+    if (!authResult.ok) return authResult.response;
+    const { user } = authResult;
 
     const body = await request.json()
     const { contentPreview, coordinates } = body
@@ -61,7 +59,7 @@ export async function PUT(
       where: {
         id: id,
         document: {
-          uploadedBy: session.user.id
+          uploadedBy: user.id
         }
       },
       data: {
@@ -95,10 +93,9 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await auth()
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    const authResult = await requireUser();
+    if (!authResult.ok) return authResult.response;
+    const { user } = authResult;
 
     const { id } = await params
     // Get the content reference first to get the document ID
@@ -106,7 +103,7 @@ export async function DELETE(
       where: {
         id: id,
         document: {
-          uploadedBy: session.user.id
+          uploadedBy: user.id
         }
       },
       select: { documentId: true }

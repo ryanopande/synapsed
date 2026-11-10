@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
-import { uploadToR2 } from "@/lib/r2/uploadtoR2";
-import { prisma } from "@/lib/prisma";
-import { vectorizeAndUpdate } from "@/lib/vectorization";
+import { uploadToR2 } from "@/lib/storage/uploadToR2";
+import { prisma } from "@/lib/db/prisma";
+import { vectorizeAndUpdate } from "@/lib/rag/vectorizeMaterial";
+import { isStudyServiceRequest, requireClassProfessor } from "@/lib/auth";
+import { extractSyllabus } from "@/lib/syllabus/extractSyllabus";
 
 
 function bufferFromFile(file: File): Promise<Buffer> {
@@ -16,6 +18,11 @@ export async function POST(req: Request) {
 
   if (!classId || files.length === 0) {
     return NextResponse.json({ error: "Missing classId or files" }, { status: 400 });
+  }
+
+  if (!isStudyServiceRequest(req)) {
+    const authResult = await requireClassProfessor(classId);
+    if (!authResult.ok) return authResult.response;
   }
 
   const results = [];
@@ -82,11 +89,7 @@ export async function POST(req: Request) {
 
       // Auto-process syllabus files for pathway generation - also in background
       if (category === "SYLLABUS" && (type === "PDF" || type === "DOCX")) {
-        fetch(`${process.env.NEXT_PUBLIC_BASE_URL}/api/syllabus/extract`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ materialId: material.id }),
-        }).catch(error => {
+        extractSyllabus(material.id).catch(error => {
           console.error(`Failed to auto-process syllabus for ${material.title}:`, error);
         });
       }

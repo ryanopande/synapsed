@@ -3,7 +3,7 @@
 import React from 'react';
 import { Card } from '@/components/ui/card';
 import { Quiz } from './types';
-import { Edit, Eye, BarChart3, Lock, Unlock } from 'lucide-react';
+import { Edit, Eye, BarChart3, Lock, Unlock, CalendarClock } from 'lucide-react';
 
 interface QuizTableProps {
   quizzes: Quiz[];
@@ -11,6 +11,7 @@ interface QuizTableProps {
   onViewResults: (quizId: string) => void;
   onEdit: (quizId: string) => void;
   onPreview: (quizId: string) => void;
+  onChangeDueDate?: (quizId: string) => void;
 }
 
 export function QuizTable({
@@ -19,6 +20,7 @@ export function QuizTable({
   onViewResults,
   onEdit,
   onPreview,
+  onChangeDueDate,
 }: QuizTableProps) {
   const getStatusColor = (status: Quiz['status']) => {
     switch (status) {
@@ -48,6 +50,21 @@ export function QuizTable({
     }).format(dateObj);
   };
 
+  const formatDueDate = (date: Date | string | null | undefined) => {
+    if (!date) return null;
+    const d = typeof date === 'string' ? new Date(date) : date;
+    if (isNaN(d.getTime())) return null;
+    return {
+      label: new Intl.DateTimeFormat('en-US', {
+        month: 'short',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+      }).format(d),
+      past: d.getTime() < Date.now(),
+    };
+  };
+
   return (
     <Card className="overflow-hidden">
       <div className="overflow-x-auto">
@@ -62,6 +79,9 @@ export function QuizTable({
               </th>
               <th className="px-6 py-4 text-left text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wider">
                 Created
+              </th>
+              <th className="px-6 py-4 text-left text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wider">
+                Due
               </th>
               <th className="px-6 py-4 text-left text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wider">
                 Submissions
@@ -97,6 +117,18 @@ export function QuizTable({
                 </td>
                 <td className="px-6 py-4 text-sm text-slate-500 dark:text-slate-400">
                   {formatDate(quiz.createdAt)}
+                </td>
+                <td className="px-6 py-4 text-sm">
+                  {(() => {
+                    const due = formatDueDate(quiz.dueDate);
+                    if (!due) return <span className="text-slate-400 dark:text-slate-500">No due date</span>;
+                    return (
+                      <span className={due.past ? 'text-red-600 dark:text-red-400' : 'text-slate-700 dark:text-slate-300'}>
+                        {due.label}
+                        {due.past && ' (closed)'}
+                      </span>
+                    );
+                  })()}
                 </td>
                 <td className="px-6 py-4">
                   <button
@@ -140,6 +172,15 @@ export function QuizTable({
                         <Unlock size={18} />
                       )}
                     </button>
+                    {quiz.status === 'published' && onChangeDueDate && (
+                      <button
+                        onClick={() => onChangeDueDate(quiz.id)}
+                        className="p-1.5 text-slate-600 hover:text-emerald-600 dark:text-slate-400 dark:hover:text-emerald-400 transition-colors"
+                        title="Change Due Date"
+                      >
+                        <CalendarClock size={18} />
+                      </button>
+                    )}
                     <button
                       onClick={() => onViewResults(quiz.id)}
                       className="p-1.5 text-slate-600 hover:text-blue-600 dark:text-slate-400 dark:hover:text-blue-400 transition-colors"

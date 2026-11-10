@@ -2,8 +2,8 @@
 
 import { Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import Sidebar from '@/components/teacher/SideBar';
-import TopNav from '@/components/teacher/TopNav';
+import Sidebar from '@/components/teacher/layout/TeacherSidebar';
+import TopNav from '@/components/teacher/layout/TopNav';
 import { QuizDashboard } from '@/components/teacher/assessments/QuizDashboard';
 
 function AssessmentsContent() {

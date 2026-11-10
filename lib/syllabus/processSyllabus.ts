@@ -1,10 +1,6 @@
-import { Mistral } from '@mistralai/mistralai';
-
-import { GoogleGenAI, Type } from '@google/genai';
-import { GEMINI_MODEL } from '@/lib/gemini-model';
-
-const mistralClient = new Mistral({ apiKey: process.env.MISTRAL_API_KEY! });
-const geminiClient = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
+import { Type } from '@google/genai';
+import { GEMINI_MODEL, gemini } from '@/lib/ai/gemini';
+import { mistral } from '@/lib/ai/mistral';
 
 export interface SyllabusContent {
   learningObjectives: string;
@@ -39,7 +35,7 @@ export async function processSyllabusFromUrl(
     
     // Step 1: Direct OCR processing from R2 URL
     const ocrResult = await processWithRetry(
-      () => mistralClient.ocr.process({
+      () => mistral.ocr.process({
         model: 'mistral-ocr-latest',
         document: {
           type: 'document_url',
@@ -139,7 +135,7 @@ async function parseSyllabusWithAI(text: string): Promise<SyllabusContent> {
       }
     };
 
-    const response = await geminiClient.models.generateContent({
+    const response = await gemini.models.generateContent({
       model: GEMINI_MODEL,
       contents: `Analyze this course syllabus and extract the structured information. Focus on accuracy and completeness.
 

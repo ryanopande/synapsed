@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { ArrowRight, ArrowLeft } from "lucide-react";
 import Image from "next/image";
-import { RichTextDisplay } from "@/components/richtext/RichTextDisplay";
+import { RichTextDisplay } from "@/components/rich-text/RichTextDisplay";
 import { Question, Quiz as QuizType } from "@/lib/types/quizzes";
 
 type QuizQuestion = Question;
