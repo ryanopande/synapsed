@@ -1,4 +1,4 @@
-import { Type } from "@google/genai";
+import { FunctionCallingConfigMode, Type } from "@google/genai";
 import { GEMINI_MODEL, gemini } from "@/lib/ai/gemini";
 import { getOrBuildTopicMap } from "@/lib/course/topicMap";
 import type { CourseTopic } from "@/lib/course/types";
@@ -46,10 +46,17 @@ Rules:
 - Questions must be answerable without the course material and must not be trick questions.
 Call create_diagnostic_questions.`;
 
-  const response = await gemini.models.generateContent({
+  const callGemini = () => gemini.models.generateContent({
     model: GEMINI_MODEL,
     contents: prompt,
     config: {
+      // Force the function call so the model can't answer in plain text instead.
+      toolConfig: {
+        functionCallingConfig: {
+          mode: FunctionCallingConfigMode.ANY,
+          allowedFunctionNames: ["create_diagnostic_questions"],
+        },
+      },
       tools: [
         {
           functionDeclarations: [
@@ -82,8 +89,22 @@ Call create_diagnostic_questions.`;
     },
   });
 
-  const raw = response.functionCalls?.[0]?.args?.questions;
-  if (!Array.isArray(raw)) throw new Error("Failed to generate diagnostic questions");
+  let raw: unknown;
+  let lastDetail = "";
+  for (let attempt = 1; attempt <= 2 && !Array.isArray(raw); attempt++) {
+    try {
+      const response = await callGemini();
+      raw = response.functionCalls?.[0]?.args?.questions;
+      if (!Array.isArray(raw)) {
+        lastDetail = `finishReason=${response.candidates?.[0]?.finishReason} text=${(response.text ?? "").slice(0, 200)}`;
+        console.error(`[DIAGNOSTIC] attempt ${attempt}: no function call. ${lastDetail}`);
+      }
+    } catch (err) {
+      lastDetail = err instanceof Error ? err.message : String(err);
+      console.error(`[DIAGNOSTIC] attempt ${attempt} Gemini error:`, lastDetail);
+    }
+  }
+  if (!Array.isArray(raw)) throw new Error(`Failed to generate diagnostic questions: ${lastDetail}`);
 
   const validTopics = new Set(topics.map((t) => t.id));
   const questions: DiagnosticQuestion[] = [];
