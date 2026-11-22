@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { orderNodes } from "@/lib/learning-paths/pathwayEditing";
 
 // GET: Fetch all pathways for a class with student info
 export async function GET(req: NextRequest, { params }: { params: Promise<{ classId: string }> }) {
@@ -21,6 +22,9 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ clas
             dependsOn: true,
             rationale: true,
             evidence: true,
+            position: true,
+            addedByInstructor: true,
+            editedByInstructor: true,
           }
         }
       },
@@ -47,7 +51,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ clas
           rejectedAt: pathway.rejectedAt,
           createdAt: pathway.createdAt,
           updatedAt: pathway.updatedAt,
-          nodes: pathway.nodes,
+          nodes: orderNodes(pathway.nodes), // learning order (prerequisites first), not storage order
           nodeCount: pathway.nodes.length
         };
       })

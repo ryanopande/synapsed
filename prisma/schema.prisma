@@ -268,6 +268,11 @@ model PathwayNode {
   rationale     String?  // 1-2 sentence "why this node for this learner"
   evidence      Json?    // [{ kind: "survey"|"objective", ..., verified: boolean }]
 
+  // Instructor edits (see lib/learning-paths/pathwayEditing.ts)
+  position           Int?      // learning order, 0 = first. Null until the pathway is first edited.
+  addedByInstructor  Boolean?  // true for a node the instructor added
+  editedByInstructor Boolean?  // true once the instructor changed this node's text, difficulty, type or duration
+
   // For future expansion
   flashcardsAdded   Boolean @default(false)
   aiLessonComplete  Boolean @default(false)
@@ -650,3 +655,23 @@ enum QuestionType {
   TRUE_FALSE
 }
 
+// One row per instructor edit of a pathway: what changed, plus the full node list before and after,
+// so every change can be undone and the study can report exactly what instructors tried to change.
+model PathwayEditLog {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  pathwayId String   @db.ObjectId
+  classId   String   @db.ObjectId
+  studentId String   // the learner the pathway belongs to
+  editedBy  String?  // id of the instructor who made the change
+  action    String   // "update" | "add" | "remove" | "move" | "undo"
+  nodeId    String?  // the node the action was about
+  summary   String   // plain-language description, e.g. Moved "X" from position 3 to 1
+  before    Json     // node list before the action
+  after     Json     // node list after the action
+  undone    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([pathwayId])
+  @@index([classId])
+  @@map("pathway_edit_logs")
+}

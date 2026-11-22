@@ -78,6 +78,8 @@ Prefer `surveys/*` for new work. Deep dive: [`../../SURVEY_SYSTEM_README.md`](..
 | `pathway/professor/[classId]` | Professor view / management |
 | `learning-paths/generate` | Alternate/related generate entry |
 | `learning-paths/[id]/regenerate` | Regenerate |
+| `learning-paths/[id]/explain` | (Re)write the instructor-facing "why this node" explanations for a pathway |
+| `learning-paths/[id]/edit` | Instructor edits: `update` / `add` / `remove` / `move` / `undo` (GET = edit history). Owner professor or admin only; refused once the student has started the pathway; an edit returns the pathway to `pending`. Rules: `lib/learning-paths/pathwayEditing.ts` |
 
 Prompt shared with study: `lib/learning-paths/pathwayPrompt.ts` → `study/data/prompts/pathway_generation_spec.json`.
 
