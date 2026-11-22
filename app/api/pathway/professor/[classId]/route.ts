@@ -121,10 +121,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ cla
       return NextResponse.json({ error: "Missing studentId" }, { status: 400 });
     }
 
-    // Delete existing pathway for this student
-    await prisma.learningPathway.deleteMany({
-      where: { studentId, classId }
-    });
+    // NOTE: the existing pathway is NOT deleted here. /api/pathway/generate replaces it only
+    // after the new one has been generated successfully, so a failed regeneration (e.g. a
+    // temporary Gemini error) no longer leaves the student with no pathway at all.
 
     // Get student's survey responses for regeneration
     const surveyResponse = await prisma.studentSurveyResponse.findFirst({

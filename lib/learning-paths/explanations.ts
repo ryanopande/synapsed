@@ -195,10 +195,19 @@ export async function explainPathway(pathwayId: string): Promise<ExplainResult> 
     });
 
     const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
-    let args: { pathwaySummary?: unknown; nodes?: unknown } | undefined;
+    type ExplainArgs = { pathwaySummary?: unknown; nodes?: unknown };
+    const wantedIds = new Set(pathway.nodes.map((n) => n.nodeId));
+    const coverage = (a: ExplainArgs | undefined) =>
+      Array.isArray(a?.nodes)
+        ? (a.nodes as RawNodeExplanation[]).filter((r) => typeof r?.id === "string" && wantedIds.has(r.id)).length
+        : 0;
+    const isComplete = (a: ExplainArgs | undefined) => coverage(a) === wantedIds.size && !!cleanText(a?.pathwaySummary, 10);
+
+    let args: ExplainArgs | undefined; // the best answer seen so far
     let lastError = "";
-    // Retry a few times: Gemini sometimes returns a temporary 503/429, or skips the function call.
-    for (let attempt = 1; attempt <= 3 && !args?.nodes; attempt++) {
+    // Retry a few times: Gemini sometimes returns a temporary 503/429, skips the function call,
+    // or answers for only some of the nodes. Keep the most complete answer.
+    for (let attempt = 1; attempt <= 3 && !isComplete(args); attempt++) {
       try {
         const res = await ai.models.generateContent({
           model: GEMINI_MODEL,
@@ -214,14 +223,18 @@ export async function explainPathway(pathwayId: string): Promise<ExplainResult> 
             tools: [{ functionDeclarations: [explainFunction] }],
           },
         });
-        args = res.functionCalls?.[0]?.args as typeof args;
-        if (!args?.nodes) lastError = "Model did not return explanations";
+        const candidate = res.functionCalls?.[0]?.args as ExplainArgs | undefined;
+        if (!candidate?.nodes) lastError = "Model did not return explanations";
+        else if (!args || coverage(candidate) >= coverage(args)) args = candidate; // keep the most complete answer
       } catch (err) {
         lastError = err instanceof Error ? err.message : String(err);
         if (attempt < 3) await new Promise((resolve) => setTimeout(resolve, 3000 * attempt));
       }
     }
     if (!args || !Array.isArray(args.nodes)) return fail(lastError || "Model did not return explanations", pathway.nodes.length);
+    if (!isComplete(args)) {
+      console.warn(`[EXPLAIN_PATHWAY] partial answer for ${pathway.id}: ${coverage(args)}/${wantedIds.size} nodes after retries`);
+    }
 
     const byId = new Map<string, RawNodeExplanation>();
     for (const raw of args.nodes as RawNodeExplanation[]) {

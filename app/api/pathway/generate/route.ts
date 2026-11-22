@@ -64,20 +64,30 @@ export async function GET(req: Request) {
   };
   
 
-  const response = await ai.models.generateContent({
-    model: GEMINI_MODEL,
-     contents: `
+  // Retry a few times: Gemini sometimes answers 503 ("high demand") or 429 for a moment.
+  let response: Awaited<ReturnType<typeof ai.models.generateContent>>;
+  for (let attempt = 1; ; attempt++) {
+    try {
+      response = await ai.models.generateContent({
+        model: GEMINI_MODEL,
+        contents: `
     Generate a learning pathway for the course "${prompt}".
     Return it by calling the function \`generate_learning_pathway\` with 8 to 12 nodes in the "nodes" array.
     Each node should be modular, with dependencies indicated using "dependsOn" by ID.
     `
-    ,
-    config: {
-      tools: [{
-        functionDeclarations: [generatePathwayFunction]
-      }]
+        ,
+        config: {
+          tools: [{
+            functionDeclarations: [generatePathwayFunction]
+          }]
+        }
+      });
+      break;
+    } catch (error) {
+      if (attempt >= 3) throw error;
+      await new Promise((resolve) => setTimeout(resolve, 3000 * attempt));
     }
-  });
+  }
 
   const functionCall = response.functionCalls?.[0];
   const nodes = functionCall?.args?.nodes;
