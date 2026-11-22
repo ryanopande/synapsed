@@ -14,8 +14,9 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { CheckCircle, XCircle, RotateCcw, Eye } from "lucide-react";
+import { CheckCircle, XCircle, RotateCcw, Eye, AlertTriangle, Info } from "lucide-react";
 import { toast } from "sonner";
+import type { EvidenceItem } from "@/lib/learning-paths/explanationVerify";
 
 interface PathwayNode {
   id: string;
@@ -26,6 +27,8 @@ interface PathwayNode {
   difficulty: string;
   duration: string;
   dependsOn: string[];
+  rationale?: string | null;
+  evidence?: EvidenceItem[] | null;
 }
 
 interface PathwayData {
@@ -35,6 +38,7 @@ interface PathwayData {
   studentEmail: string;
   status: string;
   professorNotes?: string;
+  rationaleSummary?: string | null;
   approvedAt?: string;
   rejectedAt?: string;
   createdAt: string;
@@ -49,6 +53,41 @@ interface ProfessorPathwayPreviewDialogProps {
   pathway: PathwayData | null;
   classId: string;
   onPathwayUpdate: () => void;
+}
+
+
+const EXPLANATION_NOTE =
+  "Written by the AI after the pathway was generated. It is the AI's account of why the pathway fits this learner, " +
+  "not a record of how it was computed. Quoted survey answers are checked against what the learner actually wrote.";
+
+function EvidenceLine({ item }: { item: EvidenceItem }) {
+  const ok = item.verified;
+  const mark = ok ? (
+    <span className="inline-flex items-center gap-1 text-green-700">
+      <CheckCircle className="w-3 h-3" /> checked
+    </span>
+  ) : (
+    <span className="inline-flex items-center gap-1 text-amber-700">
+      <AlertTriangle className="w-3 h-3" /> not found in the {item.kind === "survey" ? "learner's answers" : "course objectives"}
+    </span>
+  );
+
+  return (
+    <li className="text-xs text-gray-700">
+      {item.kind === "survey" ? (
+        <>
+          <span className="font-medium">Learner wrote</span>
+          {item.questionText ? <span className="text-gray-500"> (to &ldquo;{item.questionText}&rdquo;)</span> : null}
+          : &ldquo;{item.quote}&rdquo;{" "}
+        </>
+      ) : (
+        <>
+          <span className="font-medium">Course objective:</span> {item.text}{" "}
+        </>
+      )}
+      <span className="whitespace-nowrap">&middot; {mark}</span>
+    </li>
+  );
 }
 
 export default function ProfessorPathwayPreviewDialog({
@@ -226,6 +265,28 @@ export default function ProfessorPathwayPreviewDialog({
             </CardContent>
           </Card>
 
+          {/* Why this pathway */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg flex items-center gap-2">
+                Why this pathway
+                <Badge variant="outline" className="text-purple-700 bg-purple-50" title={EXPLANATION_NOTE}>
+                  AI-written explanation
+                </Badge>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {pathway.rationaleSummary ? (
+                <p className="text-sm text-gray-700">{pathway.rationaleSummary}</p>
+              ) : (
+                <p className="text-sm text-gray-500 flex items-center gap-2">
+                  <Info className="w-4 h-4" /> No explanation was recorded for this pathway.
+                </p>
+              )}
+              <p className="text-xs text-gray-400 mt-2">{EXPLANATION_NOTE}</p>
+            </CardContent>
+          </Card>
+
           {/* Pathway Nodes */}
           <Card>
             <CardHeader>
@@ -264,6 +325,30 @@ export default function ProfessorPathwayPreviewDialog({
                             <span>Depends on: {node.dependsOn.join(", ")}</span>
                           )}
                         </div>
+                        {node.rationale ? (
+                          <details className="mt-3 rounded-md bg-purple-50/60 border border-purple-100 px-3 py-2">
+                            <summary className="cursor-pointer text-sm font-medium text-purple-800">
+                              Why this node
+                            </summary>
+                            <div className="mt-2 space-y-2">
+                              <p className="text-sm text-gray-700">{node.rationale}</p>
+                              {node.evidence && node.evidence.length > 0 ? (
+                                <ul className="space-y-1 list-disc pl-4">
+                                  {node.evidence.map((item, i) => (
+                                    <EvidenceLine key={i} item={item} />
+                                  ))}
+                                </ul>
+                              ) : (
+                                <p className="text-xs text-gray-500">
+                                  No specific survey answer is cited for this node.
+                                </p>
+                              )}
+                              <p className="text-[11px] text-gray-400">AI-written explanation</p>
+                            </div>
+                          </details>
+                        ) : (
+                          <p className="mt-3 text-xs text-gray-400">No explanation recorded for this node.</p>
+                        )}
                       </div>
                     </div>
                   </div>

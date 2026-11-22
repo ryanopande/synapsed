@@ -4,6 +4,7 @@ import { NextResponse } from 'next/server';
 import { GoogleGenAI, Type } from '@google/genai';
 import { prisma } from '@/lib/prisma';
 import { GEMINI_MODEL } from '@/lib/gemini-model';
+import { explainPathwaySafely } from '@/lib/learning-paths/explanations';
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
 
@@ -119,6 +120,9 @@ export async function GET(req: Request) {
         quizScore: null
       }))
     });
+
+    // Add the instructor-facing "why this node" explanations (never throws)
+    await explainPathwaySafely(newPathway.id);
 
     return NextResponse.json({ success: true, pathwayId: newPathway.id, nodes });
   } catch (error) {

@@ -19,6 +19,8 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ clas
             difficulty: true,
             duration: true,
             dependsOn: true,
+            rationale: true,
+            evidence: true,
           }
         }
       },
@@ -40,6 +42,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ clas
           studentEmail: student?.email || '',
           status: pathway.status,
           professorNotes: pathway.professorNotes,
+          rationaleSummary: pathway.rationaleSummary,
           approvedAt: pathway.approvedAt,
           rejectedAt: pathway.rejectedAt,
           createdAt: pathway.createdAt,

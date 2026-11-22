@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { GoogleGenAI, Type } from "@google/genai";
 import { GEMINI_MODEL } from "@/lib/gemini-model";
+import { explainPathwaySafely } from "@/lib/learning-paths/explanations";
 import {
   buildPathwayPrompt,
   getPathwayFunctionDeclaration,
@@ -262,6 +263,9 @@ async function generatePathwayForStudent(
       quizScore: null,
     })),
   });
+
+  // Add the instructor-facing "why this node" explanations (never throws; see lib/learning-paths/explanations.ts)
+  await explainPathwaySafely(pathway.id);
 
   return pathway;
 }

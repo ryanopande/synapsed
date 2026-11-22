@@ -237,6 +237,7 @@ model LearningPathway {
   survey     Survey?  @relation(fields: [surveyId], references: [id])
   status     String   @default("pending") // "pending" | "approved" | "rejected"
   professorNotes String?  // Optional focus text for regeneration
+  rationaleSummary String? // AI-written "why this pathway" note for the instructor (null if not generated)
   approvedAt DateTime?
   rejectedAt DateTime?
   version    Int      @default(1) // For tracking regenerations
@@ -262,6 +263,10 @@ model PathwayNode {
   difficulty    String   // "beginner", "intermediate", "advanced"
   duration      String
   dependsOn     String[] // array of nodeIds it depends on (e.g. ["node1", "node2"])
+
+  // Explanation shown to the instructor (written after the pathway, see lib/learning-paths/explanations.ts)
+  rationale     String?  // 1-2 sentence "why this node for this learner"
+  evidence      Json?    // [{ kind: "survey"|"objective", ..., verified: boolean }]
 
   // For future expansion
   flashcardsAdded   Boolean @default(false)
