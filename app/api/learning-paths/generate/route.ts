@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { GoogleGenAI, Type } from "@google/genai";
 import { GEMINI_MODEL } from "@/lib/gemini-model";
 import { explainPathwaySafely } from "@/lib/learning-paths/explanations";
+import { withGeminiRetry } from "@/lib/learning-paths/geminiRetry";
 import {
   buildPathwayPrompt,
   getPathwayFunctionDeclaration,
@@ -206,24 +207,28 @@ async function generatePathwayForStudent(
     },
   };
 
-  const aiResponse = await geminiClient.models.generateContent({
-    model: GEMINI_MODEL,
-    contents: prompt,
-    config: {
-      tools: [
-        {
-          functionDeclarations: [functionDeclaration],
+  // Gemini is sometimes briefly overloaded (503) or returns no usable answer: retry instead of failing the student.
+  const nodes = await withGeminiRetry(
+    async () => {
+      const aiResponse = await geminiClient.models.generateContent({
+        model: GEMINI_MODEL,
+        contents: prompt,
+        config: {
+          tools: [
+            {
+              functionDeclarations: [functionDeclaration],
+            },
+          ],
         },
-      ],
+      });
+      const returned = aiResponse.functionCalls?.[0]?.args?.nodes;
+      if (!returned || !Array.isArray(returned) || returned.length === 0) {
+        throw new Error("Gemini returned no pathway nodes (temporary)");
+      }
+      return returned;
     },
-  });
-
-  const functionCall = aiResponse.functionCalls?.[0];
-  const nodes = functionCall?.args?.nodes;
-
-  if (!nodes || !Array.isArray(nodes)) {
-    throw new Error('Failed to generate pathway nodes');
-  }
+    { label: "generate pathway" }
+  );
 
   // Delete any previous pathways for this student/class/survey combination
   await prisma.learningPathway.deleteMany({
