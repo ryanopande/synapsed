@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { GoogleGenAI, Type } from "@google/genai";
-import { GEMINI_MODEL } from "@/lib/gemini-model";
 import { explainPathwaySafely } from "@/lib/learning-paths/explanations";
 import { withGeminiRetry } from "@/lib/learning-paths/geminiRetry";
 import {
@@ -209,9 +208,9 @@ async function generatePathwayForStudent(
 
   // Gemini is sometimes briefly overloaded (503) or returns no usable answer: retry instead of failing the student.
   const nodes = await withGeminiRetry(
-    async () => {
+    async (model) => {
       const aiResponse = await geminiClient.models.generateContent({
-        model: GEMINI_MODEL,
+        model,
         contents: prompt,
         config: {
           tools: [

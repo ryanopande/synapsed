@@ -1,7 +1,7 @@
 import { FunctionCallingConfigMode, GoogleGenAI, Type } from "@google/genai";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { GEMINI_MODEL } from "@/lib/gemini-model";
+import { withGeminiRetry } from "./geminiRetry";
 import {
   buildNodeExplanation,
   cleanText,
@@ -209,20 +209,24 @@ export async function explainPathway(pathwayId: string): Promise<ExplainResult> 
     // or answers for only some of the nodes. Keep the most complete answer.
     for (let attempt = 1; attempt <= 3 && !isComplete(args); attempt++) {
       try {
-        const res = await ai.models.generateContent({
-          model: GEMINI_MODEL,
-          contents: prompt,
-          config: {
-            temperature: 0.2,
-            toolConfig: {
-              functionCallingConfig: {
-                mode: FunctionCallingConfigMode.ANY,
-                allowedFunctionNames: [FUNCTION_NAME],
+        const res = await withGeminiRetry(
+          (model) =>
+            ai.models.generateContent({
+              model,
+              contents: prompt,
+              config: {
+                temperature: 0.2,
+                toolConfig: {
+                  functionCallingConfig: {
+                    mode: FunctionCallingConfigMode.ANY,
+                    allowedFunctionNames: [FUNCTION_NAME],
+                  },
+                },
+                tools: [{ functionDeclarations: [explainFunction] }],
               },
-            },
-            tools: [{ functionDeclarations: [explainFunction] }],
-          },
-        });
+            }),
+          { label: "explain pathway" }
+        );
         const candidate = res.functionCalls?.[0]?.args as ExplainArgs | undefined;
         if (!candidate?.nodes) lastError = "Model did not return explanations";
         else if (!args || coverage(candidate) >= coverage(args)) args = candidate; // keep the most complete answer

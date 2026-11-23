@@ -3,7 +3,7 @@
 import { NextResponse } from 'next/server';
 import { GoogleGenAI, Type } from '@google/genai';
 import { prisma } from '@/lib/prisma';
-import { GEMINI_MODEL } from '@/lib/gemini-model';
+import { withGeminiRetry } from '@/lib/learning-paths/geminiRetry';
 import { explainPathwaySafely } from '@/lib/learning-paths/explanations';
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
@@ -64,12 +64,11 @@ export async function GET(req: Request) {
   };
   
 
-  // Retry a few times: Gemini sometimes answers 503 ("high demand") or 429 for a moment.
-  let response: Awaited<ReturnType<typeof ai.models.generateContent>>;
-  for (let attempt = 1; ; attempt++) {
-    try {
-      response = await ai.models.generateContent({
-        model: GEMINI_MODEL,
+  // Gemini is sometimes briefly overloaded (503) or rate limited (429): retry, rotating models if needed.
+  const response = await withGeminiRetry(
+    (model) =>
+      ai.models.generateContent({
+        model,
         contents: `
     Generate a learning pathway for the course "${prompt}".
     Return it by calling the function \`generate_learning_pathway\` with 8 to 12 nodes in the "nodes" array.
@@ -81,13 +80,9 @@ export async function GET(req: Request) {
             functionDeclarations: [generatePathwayFunction]
           }]
         }
-      });
-      break;
-    } catch (error) {
-      if (attempt >= 3) throw error;
-      await new Promise((resolve) => setTimeout(resolve, 3000 * attempt));
-    }
-  }
+      }),
+    { label: "regenerate pathway" }
+  );
 
   const functionCall = response.functionCalls?.[0];
   const nodes = functionCall?.args?.nodes;
