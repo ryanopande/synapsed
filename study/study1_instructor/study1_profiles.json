@@ -1,0 +1,175 @@
+{
+  "version": "study1-v1",
+  "course": "AI Literacy — Foundations, Generative AI & Prompting (study/data/syllabus/syllabus.json)",
+  "note": "Researcher-authored simulated learners for SynapsEd Study 1. Fictional people. Do not show the 'description' or the scenario key to participants.",
+  "profiles": [
+    {
+      "id": "amal_r",
+      "description": "Economics, 3rd year. Used only for the walkthrough.",
+      "answers": {
+        "goals_1": "I want to understand how AI is changing jobs and productivity, since that is close to what I study in labour economics.",
+        "goals_2": "Career advancement",
+        "prereq_1": "Somewhat uncertain",
+        "learning_1": "Mixed approach",
+        "bloom_remember": "Intro stats and econometrics (regression). I use ChatGPT sometimes to summarise readings.",
+        "bloom_understand": "What machine learning actually is, and what generative AI can and cannot do.",
+        "bloom_apply": "For my thesis on automation and wages, and later in a policy or consulting job.",
+        "bloom_analyze": "Keeping up with the technical words. I am not a programmer."
+      }
+    },
+    {
+      "id": "lina_m",
+      "description": "Nursing BSN, 3rd year. No computing background.",
+      "answers": {
+        "goals_1": "Learn how to use AI tools safely at work. Our hospital placement started using an AI note-writing tool and I want to know when I can trust it and how it affects patient safety and privacy.",
+        "goals_2": "Required for my major",
+        "prereq_1": "Very uncertain",
+        "learning_1": "Visual (diagrams, charts, videos)",
+        "bloom_remember": "I have not taken any computer science or AI course. Only one intro statistics class. Tried ChatGPT twice for essay outlines.",
+        "bloom_understand": "Basic terms like machine learning and generative AI, why AI makes mistakes, and how to check its output.",
+        "bloom_apply": "Checking AI-written clinical notes before I sign them, and explaining to patients when AI was involved.",
+        "bloom_analyze": "The technical vocabulary. I worry I will be the slowest in the class."
+      }
+    },
+    {
+      "id": "omar_k",
+      "description": "MPH (public health) master's student, part-time data analyst at a health NGO.",
+      "answers": {
+        "goals_1": "Two things: (1) build a small chatbot that answers staff questions from our NGO's health guidelines (I read about RAG), and (2) put together a short plan to convince my manager to adopt AI responsibly without harming the communities we serve.",
+        "goals_2": "Career advancement",
+        "prereq_1": "Somewhat confident",
+        "learning_1": "Kinesthetic (hands-on activities)",
+        "bloom_remember": "Epidemiology and biostatistics, some R. I use ChatGPT weekly for drafting reports. Never trained a model myself.",
+        "bloom_understand": "How retrieval-based chatbots work, how organisations roll out AI, and the equity risks in health settings.",
+        "bloom_apply": "A pilot chatbot for field staff and a one-page adoption proposal for my manager.",
+        "bloom_analyze": "Time. I work 20 hours a week, so realistically about 4 hours a week for this course."
+      }
+    },
+    {
+      "id": "daniel_w",
+      "description": "Finance, final year. Rates himself very confident.",
+      "answers": {
+        "goals_1": "Get better at prompting so I can automate parts of my financial modelling. I'd like to skip the basics, I already know how AI works.",
+        "goals_2": "Career advancement",
+        "prereq_1": "Very confident",
+        "learning_1": "Reading/Writing (texts, notes)",
+        "bloom_remember": "I use ChatGPT every day for work and watched a YouTube series on neural networks. Machine learning is basically the computer writing lots of if-then rules really fast. The more data you give a model the more accurate it gets, so bias is not really an issue if the dataset is big enough.",
+        "bloom_understand": "Advanced prompt techniques and how to plug AI into Excel and my workflows.",
+        "bloom_apply": "Automating forecasts and investment memos at my internship.",
+        "bloom_analyze": "Honestly not many. Maybe the ethics part, not sure it is relevant to finance."
+      }
+    },
+    {
+      "id": "mei_t",
+      "description": "Education (primary teaching), 2nd year. Pair with sara_b: identical except learning style.",
+      "answers": {
+        "goals_1": "Understand generative AI well enough to decide how my future pupils should and should not use it.",
+        "goals_2": "Personal interest in the subject",
+        "prereq_1": "Neutral",
+        "learning_1": "Visual (diagrams, charts, videos)",
+        "bloom_remember": "No AI courses. I use ChatGPT occasionally to plan lessons.",
+        "bloom_understand": "How tools like ChatGPT produce answers, how to write good prompts, and the risks for children.",
+        "bloom_apply": "Designing classroom activities and an AI-use policy for my placement school.",
+        "bloom_analyze": "Telling apart what is hype and what is real."
+      }
+    },
+    {
+      "id": "sara_b",
+      "description": "Education (primary teaching), 2nd year. Pair with mei_t: identical except learning style.",
+      "answers": {
+        "goals_1": "Understand generative AI well enough to decide how my future pupils should and should not use it.",
+        "goals_2": "Personal interest in the subject",
+        "prereq_1": "Neutral",
+        "learning_1": "Reading/Writing (texts, notes)",
+        "bloom_remember": "No AI courses. I use ChatGPT occasionally to plan lessons.",
+        "bloom_understand": "How tools like ChatGPT produce answers, how to write good prompts, and the risks for children.",
+        "bloom_apply": "Designing classroom activities and an AI-use policy for my placement school.",
+        "bloom_analyze": "Telling apart what is hype and what is real."
+      }
+    },
+    {
+      "id": "jonas_e",
+      "description": "Computer Science, 4th year, ML coursework, research assistant.",
+      "answers": {
+        "goals_1": "Go deeper on generative AI for research: retrieval-augmented generation, fine-tuning trade-offs, evaluation.",
+        "goals_2": "Personal interest in the subject",
+        "prereq_1": "Very confident",
+        "learning_1": "Kinesthetic (hands-on activities)",
+        "bloom_remember": "Machine learning, deep learning (PyTorch), gradient descent, transformers at a high level. Built a small classifier for a course project.",
+        "bloom_understand": "Practical workflows for building LLM applications and where they fail.",
+        "bloom_apply": "My research project on question answering over lab documents.",
+        "bloom_analyze": "The non-technical parts like business strategy may feel slow for me."
+      }
+    },
+    {
+      "id": "priya_s",
+      "description": "MBA, previously product manager.",
+      "answers": {
+        "goals_1": "Learn how to lead AI adoption in a team: picking projects, strategy, and change management.",
+        "goals_2": "Career advancement",
+        "prereq_1": "Somewhat uncertain",
+        "learning_1": "Auditory (lectures, discussions)",
+        "bloom_remember": "No technical courses. I have managed vendors who sold 'AI features'.",
+        "bloom_understand": "What makes a good AI project and how companies transform with AI.",
+        "bloom_apply": "Running an AI pilot when I go back to industry.",
+        "bloom_analyze": "Judging technical claims from engineers and vendors."
+      }
+    },
+    {
+      "id": "hugo_l",
+      "description": "History BA, 2nd year.",
+      "answers": {
+        "goals_1": "understand what ai is and how it might change historical research and archives",
+        "goals_2": "Required for my major",
+        "prereq_1": "Very uncertain",
+        "learning_1": "Auditory (lectures, discussions)",
+        "bloom_remember": "none, never used any ai tools except google translate",
+        "bloom_understand": "the basics, what it can and cant do",
+        "bloom_apply": "maybe searching archives or transcribing old documents",
+        "bloom_analyze": "everything technical honestly"
+      }
+    },
+    {
+      "id": "fatima_a",
+      "description": "Journalism MA.",
+      "answers": {
+        "goals_1": "Understand misinformation, deepfakes and bias in generative AI so I can report on it responsibly.",
+        "goals_2": "Career advancement",
+        "prereq_1": "Somewhat uncertain",
+        "learning_1": "Reading/Writing (texts, notes)",
+        "bloom_remember": "No technical background. I have fact-checked AI-generated images for a student newspaper.",
+        "bloom_understand": "How generative models make text and images, and the main ethical debates.",
+        "bloom_apply": "Verification work and explaining AI stories to readers.",
+        "bloom_analyze": "Understanding the technical side well enough not to make errors in articles."
+      }
+    },
+    {
+      "id": "kenji_n",
+      "description": "Statistics, 3rd year.",
+      "answers": {
+        "goals_1": "Connect what I know from statistics to generative AI and learn structured prompting (few-shot, chain-of-thought).",
+        "goals_2": "Prerequisite for other courses",
+        "prereq_1": "Somewhat confident",
+        "learning_1": "Mixed approach",
+        "bloom_remember": "Regression, classification, cross-validation, a bit of Python. Haven't studied neural networks.",
+        "bloom_understand": "How LLMs differ from the statistical models I know, and prompt templates.",
+        "bloom_apply": "Data analysis assistants for my coursework.",
+        "bloom_analyze": "Not sure how much of the course will be too basic vs too new."
+      }
+    },
+    {
+      "id": "rosa_g",
+      "description": "Political Science, 3rd year.",
+      "answers": {
+        "goals_1": "Understand AI well enough to write about AI regulation and its impact on jobs and elections.",
+        "goals_2": "Personal interest in the subject",
+        "prereq_1": "Neutral",
+        "learning_1": "Mixed approach",
+        "bloom_remember": "No AI courses. Use ChatGPT to brainstorm essay ideas.",
+        "bloom_understand": "What AI can do today, and the societal risks.",
+        "bloom_apply": "A policy paper on AI and labour markets.",
+        "bloom_analyze": "Technical terms."
+      }
+    }
+  ]
+}

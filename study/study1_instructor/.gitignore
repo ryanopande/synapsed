@@ -1,0 +1,8 @@
+# Instance data and caches created while running the study: never commit these.
+seed_result.json
+__pycache__/
+*.pyc
+# pathway snapshots exported during sessions (they contain study data)
+frozen*.json
+p[0-9]*_after.json
+snapshot_*.json
